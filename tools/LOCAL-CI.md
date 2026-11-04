@@ -1,0 +1,25 @@
+# Local CI on Windows
+
+Run the complete local gate before opening a PR or pushing a finished change. It builds the app and anonymous fixtures, runs regression tests, and exercises the browser acceptance paths with Chromium:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File tools/local-ci.ps1 verify -IncludeBrowser
+```
+
+Other local commands, when a narrower check is useful:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File tools/local-ci.ps1 test
+powershell -NoProfile -ExecutionPolicy Bypass -File tools/local-ci.ps1 fast
+powershell -NoProfile -ExecutionPolicy Bypass -File tools/local-ci.ps1 build
+powershell -NoProfile -ExecutionPolicy Bypass -File tools/local-ci.ps1 verify
+powershell -NoProfile -ExecutionPolicy Bypass -File tools/local-ci.ps1 release-dry-run
+```
+
+`fast` reads the `fast` suite in `tests/ci_suites.json`, the same manifest used by `.github/workflows/test-fast.yml`. `test` runs Python compilation/unit tests, checks the assembled application bundle, then runs the JavaScript regression commands discovered from `.github/workflows/build.yml`. `build` creates the standalone data-free CORE HTML with `build/build.py`. `verify` builds CORE, runs regression checks and browser acceptance against anonymous SQLite fixtures, and validates the artifact. `-IncludeBrowser` makes a missing Chromium/Chrome/Edge an error instead of silently skipping browser acceptance. `release-dry-run` builds and validates the next version locally without creating a tag or publishing. Full acceptance is local by default. The GitHub full build workflow is manual-only; run it only when explicitly requested. Lightweight PR checks remain enabled and required. GitHub release publication is a separate explicit step.
+
+Browser acceptance uses Chrome, Chromium, or Edge if found in standard Windows install locations or `PATH`. Set `CHROMIUM_PATH` to select a specific executable. The complete local gate uses `-IncludeBrowser`, so a missing browser cannot produce a false green result. Its browser tests use generated, anonymous data under `dist/acceptance/`. Production business datasets are never read by the build or CI. Browser acceptance uses generated anonymous data only. Runtime business data is supplied through the user-managed SQLite database.
+
+The Python bytecode cache is redirected to the OS temp directory so the run does not create `__pycache__` files under source directories. HTML and synthetic test fixtures are written under ignored `dist/`. The runner continues after failed checks, reports each failure in its final summary, and returns a non-zero exit code if any check failed.
+
+The manual GitHub full-build workflow remains the reference list for Node regression commands. Keep its command form `node [--max-old-space-size=N] tests/name.js` so the local runner discovers new checks. Bash-only release/tag steps are intentionally not run locally.

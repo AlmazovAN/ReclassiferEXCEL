@@ -1,0 +1,465 @@
+name: Build single HTML
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Check Python sources
+        run: python -m compileall -q src/python
+
+      - name: Run regression tests
+        run: python -m unittest discover -s tests -p 'test_*.py'
+
+      - name: Check JavaScript sources
+        run: |
+          python - <<'PY'
+          import importlib.util
+          from pathlib import Path
+          spec = importlib.util.spec_from_file_location("reclassifier_build", Path("build/build.py"))
+          module = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(module)
+          Path("/tmp/reclassifier-app.js").write_text(module.load_app_js(), encoding="utf-8")
+          PY
+          node --check /tmp/reclassifier-app.js
+          node --check src/js/app/database_contract.js
+          node --check src/js/app/database_core.js
+          node --check src/js/app/database_recovery_store.js
+          node --check src/js/app/database_recovery_ui.js
+          node --check src/js/app/database_bootstrap.js
+          node --check src/js/app/data_repository.js
+          node --check src/js/app/recalculation_core.js
+          node --check src/js/app/recalculation_materializer.js
+          node --check src/js/app/recalculation_commit.js
+          node --check src/js/app/recalculation_workspace.js
+          node --check src/js/app/database_recalculation_ui.js
+          node --check src/js/app/database_recognizer.js
+          node --check src/js/app/database_integration.js
+          node --check src/js/modules/equipment/equipment_partitions.js
+          node --check src/js/modules/equipment/equipment_history.js
+          node --check src/js/security/network_guard.js
+          node --check src/js/modules/reclassification/runtime_source.js
+          node --check src/js/modules/reclassification/rules.js
+          node --check src/js/workers/reclassification_xlsx_format.js
+          node --check src/js/workers/reclassification_processor.js
+          node --check tests/test_reclassification_load_pr7.js
+          node --check src/js/workers/itsm_processor.js
+          node --check src/js/modules/itsm/recalculation.js
+          node --check src/js/modules/itsm/kpi_source.js
+          node --check src/js/modules/mobile_brigade/rules.js
+          node --check src/js/workers/mobile_brigade_processor.js
+          node --check src/js/modules/mobile_brigade/recalculation.js
+          node --check src/js/worker.js
+
+      - name: Run PR3 real XLSX roundtrip in non-UTC timezone
+        env:
+          TZ: Europe/Amsterdam
+        run: node --max-old-space-size=1536 tests/test_dataset_excel_volume_pr3.js
+
+      - name: Verify XLSX native dates and numeric fields
+        run: node tests/test_xlsx_export_cell_types.js
+
+      - name: Run dataset Excel period export regression
+        run: node tests/test_dataset_excel_export_pr2.js
+
+      - name: Run compact ITSM and Mobile Brigade panel regression
+        run: node tests/test_compact_module_panels_pr1.js
+
+      - name: Validate PR3 reference provenance and module previews
+        run: node tests/test_module_workspace_pr3.js
+
+      - name: Verify PR2 shared header and database status semantics
+        run: node tests/test_header_status_pr2.js
+
+      - name: Verify PR4 automatic KPI background refresh and stale-result protections
+        run: node tests/test_kpi_auto_refresh_pr4.js
+
+      - name: Run failure classifier normalization regression
+        run: node tests/test_failure_classifier_normalizer.js
+
+      - name: Run offline network guard
+        run: node tests/test_network_guard.js
+
+      - name: Verify journal filters, categories, operations and export
+        run: |
+          node tests/test_journal_category_monitor.js
+          node tests/test_journal_category_ui.js
+          node tests/test_journal_export_ui.js
+          node tests/test_journal_filters_ui.js
+          node tests/test_journal_integration_lifecycle.js
+          node tests/test_journal_operation_coverage.js
+          node tests/test_journal_operation_summary.js
+          node tests/test_journal_operation_summary_ui.js
+
+      - name: Run Reclassification Worker XLSX integration
+        run: |
+          node tests/test_reclassification_legacy_v4_01.js
+          node tests/test_reclassification_rules.js
+          node tests/test_reclassification_runtime_source.js
+          node tests/test_reclassification_worker_processor.js
+          node tests/test_reclass_upsert.js
+
+      - name: PR7 end-to-end synthetic Re-Class 5000-row load
+        run: node --max-old-space-size=2048 tests/test_reclassification_load_pr7.js
+
+      - name: Run KPI Source source-fact regression
+        run: node tests/test_kpi_source_facts.js
+
+      - name: Verify PR7 operational D / Н / М time-series aggregation
+        run: node tests/test_kpi_operational_dnm.js
+
+      - name: Run KPI Source core regression
+        run: node tests/test_kpi_source_aggregator.js
+
+      - name: Verify PR-5 classification diagnostics and unchanged formula
+        run: node tests/test_classification_quality_diagnostics_pr5.js
+
+      - name: Run KPI Preparation regression
+        run: node tests/test_kpi_preparation.js
+
+      - name: Run KPI Calculator regression
+        run: node tests/test_kpi_calculator.js
+
+      - name: Verify CGPS classification quality PR 3
+        run: node tests/test_classification_quality_cgps_pr3.js
+
+      - name: Verify general classification quality PR 2
+        run: node tests/test_classification_quality_general_pr2.js
+
+      - name: Verify indexed KPI selection matches full scan and audit
+        run: node tests/test_kpi_indexed_selection.js
+
+      - name: KTG formula regression
+        run: |
+          node tests/test_ktg.js
+          node tests/test_kpi_catalog.js
+          node tests/test_kpi_report_view_model.js
+
+      - name: Verify PR8 provisional VBR/KTG current-month forecast
+        run: node tests/test_kpi_current_month_forecast_pr8.js
+
+      - name: Verify PR-7 absolute INC and labor reporting-month forecasts
+        run: node tests/test_kpi_reporting_volume_forecast_pr7.js
+
+      - name: Verify PR-2 certified reporting-month forecasts and methods
+        run: node tests/test_kpi_reporting_month_forecast_pr2.js
+
+      - name: Run Report Snapshot regression
+        run: node tests/test_report_snapshot.js
+
+      - name: Run PR1 performance profiler regression
+        run: node tests/test_perf_instrumentation.js
+
+      - name: Verify PR10 strict acceptance report schema and gates
+        run: node tests/pr10_acceptance_metrics.js
+
+      - name: Verify PR3 KPI computation boundary and source-version cache
+        run: node tests/test_kpi_computation_service.js
+
+      - name: Verify PR6 materialized component index and Calculator parity
+        run: node tests/test_kpi_materialization_pr6.js
+
+      - name: Verify PR4 KPI priority queue and Worker protocol
+        run: |
+          node tests/test_kpi_task_scheduler.js
+          node tests/test_kpi_worker_protocol.js
+
+      - name: Verify PR-6 forecasting, classification and PDF consistency
+        run: node tests/test_pr6_final_contract_acceptance.js
+
+      - name: Profile PR-6 classification diagnostics on synthetic sources
+        run: node --max-old-space-size=1024 tests/test_pr6_classification_performance.js
+
+      - name: Run Reliability Report Service regression
+        run: node tests/test_reliability_report_service.js
+
+      - name: PR12 compact report toolbar and explicit KPI refresh
+        run: node tests/test_pr12_reliability_toolbar.js
+
+      - name: PR13 report sections, SLA labels, labor colors and PDF consistency
+        run: node tests/test_pr13_report_overview.js
+
+      - name: PR7 verify three problem-management KPI and eight charts
+        run: node tests/test_problem_management_pr7.js
+
+      - name: PR6 verify report coverage, gap-safe charts and PDF page progress
+        run: node tests/test_reliability_presentation_pr6.js
+
+      - name: Verify PR-8 percent versus absolute forecast SVG presentation
+        run: node tests/test_forecast_visual_pr8.js
+
+      - name: Verify PR-4 SVG forecast presentation
+        run: node tests/test_forecast_visual_pr4.js
+
+      - name: Run Reliability PDF regression
+        run: node tests/test_reliability_pdf.js
+
+      - name: Verify two classification KPI PDF pages and MB gaps
+        run: node tests/test_classification_quality_pdf_pr6.js
+
+      - name: Verify ITSM ↔ MB request presence states
+        run: node tests/test_itsm_mb_presence.js
+
+      - name: Verify PR7 strict MB request IDs and separate initiator exclusions
+        run: node tests/test_classification_quality_mb_lookup_pr7.js
+
+      - name: Run ITSM Mobile Brigade enrichment regression
+        run: node tests/test_itsm_mobile_brigade_enrichment.js
+
+      - name: Run ITSM Worker XLSX integration
+
+      - name: Stress-test 10k-row XLSX without XLSX export
+        run: node --max-old-space-size=1536 tests/test_step9_large_xlsx.js
+
+      - name: Run Mobile Brigade rules regression
+        run: node tests/test_mobile_brigade_rules.js
+
+      - name: Verify PR2 shared ITSM and MB field contract
+        run: node tests/test_itsm_mb_link_contract_pr2.js
+
+      - name: Verify PR5 Mobile Brigade ITSM recalculation
+        env:
+          TZ: Europe/Amsterdam
+        run: node tests/test_mobile_brigade_recalculation_pr5.js
+
+      - name: Run Mobile Brigade Worker XLSX integration
+        run: |
+          node tests/test_mobile_brigade_worker_processor.js
+          node tests/test_mobile_brigade_upsert.js
+
+      - name: Regression of user operation guards and atomic Dataset apply
+        run: |
+          node tests/test_user_logic_hardening.js
+          node tests/test_bootstrap_failure_states.js
+
+      - name: Run Dataset classification regression
+        run: |
+          node tests/test_dataset_classifier.js
+          node tests/test_database_recognizer.js
+
+      - name: Run SQLite Dataset Integration regression
+        run: |
+          node tests/test_database_integration.js
+          node tests/test_kpi_source_incremental_sqlite.js
+          node tests/test_mobile_brigade_sqlite_itsm_link.js
+
+      - name: Run SQLite embedded bootstrap regression
+        run: node tests/test_database_bootstrap.js
+
+      - name: Run SQLite runtime repository regression
+        run: |
+          node tests/test_runtime_data_repository.js
+          node tests/test_dataset_db_state_model.js
+          node tests/test_persisted_dependency_freshness.js
+          node tests/test_database_workspace_synchronization.js
+          node tests/test_database_queue_background_prepare.js
+          node tests/test_database_next_paint_background.js
+          node tests/test_database_storage_state_pr3.js
+          node tests/test_database_save_progress_pr4.js
+          node tests/test_database_auto_save_pr5.js
+          node tests/test_database_recovery_store_pr5.js
+          node tests/test_database_ui_pr6.js
+          node tests/test_database_workspace_final_acceptance.js
+
+      - name: Verify PR-8 classification change-vintage causality and passports
+        run: |
+          node tests/test_kpi_classification_lag_pr8.js
+          node tests/test_kpi_classification_lag_passport_pr8.js
+
+      - name: Verify PR-7 real AVR task count pilot and source semantics
+        run: node tests/test_kpi_pilot_avr_task_count_pr7.js
+
+      - name: Verify PR-6 declarative KPI onboarding across the report
+        run: node tests/test_kpi_declarative_onboarding_pr6.js
+
+      - name: Verify PR-5 shared passport/chart forecast model controls
+        run: node tests/test_kpi_passport_forecast_method_pr5.js
+
+      - name: Verify PR-4 unified forecast strategy registry
+        run: node tests/test_kpi_forecast_strategy_registry_pr4.js
+
+      - name: Verify PR-3 real KPI formula component presentation
+        run: node tests/test_kpi_components_pr3.js
+
+      - name: Verify PR-2 KPI Definition V2 schema and legacy compatibility
+        run: node tests/test_kpi_definition_v2_pr2.js
+
+      - name: PR-1 KPI behavior and chart compatibility baselines
+        run: |
+          node tests/test_kpi_baseline_contract_pr1.js
+          node tests/test_kpi_visual_baseline_pr1.js
+
+      - name: Smoke-test application routes
+        run: |
+          node tests/test_reliability_dashboard_data.js
+          node tests/test_reliability_kpi_cards_step4.js
+          node tests/test_kpi_passport_view.js
+          node tests/test_kpi_passport_unified_ui.js
+          node tests/test_kpi_passport_math_step2.js
+          node tests/test_kpi_passport_lineage_step3.js
+          node tests/test_classification_quality_passports_pr5.js
+          node tests/test_kpi_passport_dialog_step5.js
+          node tests/test_kpi_passports_page.js
+          node tests/test_kpi_chart_view_model.js
+          node tests/test_kpi_chart_dialog_step7.js
+          node tests/test_classification_quality_dashboard_pr4.js
+          node tests/test_kpi_execution_trace.js
+          node tests/test_kpi_forecast_engine.js
+
+      - name: Verify ITSM recalculation rules
+        run: node tests/test_itsm_recalculation_pr4.js
+
+      - name: PR12 integrated Equipment mine/history/population acceptance
+        run: node tests/test_pr12_equipment_chain.js
+
+      - name: Verify PR10 historical Equipment Population
+        run: |
+          node --check src/js/modules/equipment/equipment_population.js
+          node tests/test_equipment_population_pr10.js
+
+      - name: Verify PR9 persistent Equipment History domain rules
+        run: node tests/test_equipment_history_pr9.js
+
+      - name: Verify PR8 five Equipment mine partitions
+        run: node tests/test_equipment_partition_pr8.js
+
+      - name: Verify PR7 staged recalculation workflow
+        run: node tests/test_recalculation_workspace_pr7.js
+
+      - name: Verify PR7 Data route recalculation controls
+        run: node tests/test_database_recalculation_ui_pr7.js
+
+      - name: Verify PR7 unified recalculation of all supported accumulated data
+        run: node tests/test_recalculation_all_pr7.js
+
+      - name: Verify PR6 atomic recalculation and KPI Source
+        run: node tests/test_recalculation_commit_pr6.js
+
+      - name: Verify PR3 recalculation preview core
+        run: node tests/test_recalculation_core_pr3.js
+
+      - name: Test dataset lifecycle and adapters
+        run: |
+          node tests/test_file_selection.js
+          node tests/test_dataset_catalog.js
+          node tests/test_database_contract.js
+          node tests/test_database_core.js
+          node tests/test_database_operation_mutex.js
+          node tests/test_worker_client.js
+          node tests/test_dataset_pipeline.js
+          node tests/test_dataset_lifecycle_manager.js
+          node tests/test_dataset_adapters.js
+          node tests/test_html_snapshot.js
+
+      - name: Run PR5 promoted deferred JavaScript regressions
+        run: |
+          node tests/test_itsm_sqlite_link_projection.js
+          node tests/test_runtime_kpi_projection_test17.js
+          node tests/test_dataset_export_long_text.js
+          node tests/test_dataset_single_xlsx_protocol.js
+          node tests/test_reclassification_cause_v4_10.js
+          node tests/test_mb_worker_sqlite_batches.js
+          node tests/test_diagnostic_archive_retention_test18.js
+
+  # The standalone production artifact is always data-free CORE HTML.
+  core:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Build standalone CORE HTML (always)
+        run: python build/build.py
+
+      - name: Verify independent CORE and SQLite runtime assets
+        run: python tests/check_core_html.py
+
+      - name: Accept CORE HTML without datasets in offline Chromium
+        run: node tests/test_core_browser_offline.js
+
+      - name: PR1 verify CORE SQLite accumulated database roundtrip
+        run: node tests/test_core_sqlite_accumulation_pr1.js
+
+      - name: Verify writing the same connected SQLite file from CORE
+        run: node tests/test_sqlite_direct_file_save.js
+
+      - name: PR5 verify persisted KPI snapshots, schema-v5 migration and damaged-cache fallback
+        run: node tests/test_sqlite_kpi_snapshot_pr5.js
+
+      - name: PR4 stress-test multi-chunk SQLite persistence and file-save failures
+        run: node tests/test_sqlite_file_save_stress_pr4.js
+
+      - name: PR8 end-to-end accumulated SQLite file, recovery and consistency acceptance
+        run: node tests/test_sqlite_pr8_end_to_end.js
+
+      - name: Run synthetic SQLite parity, registry and VFS acceptance
+        run: |
+          node tests/test_legacy_sqlite_parity.js
+          node tests/test_sqlite_registry_compatibility.js
+          node tests/test_database_wasmfs_lifecycle.js
+          node tests/test_sqlite_full_dataset_roundtrip.js
+
+      - name: Verify large SQLite UPSERT and bootstrap rollback
+        run: |
+          node --max-old-space-size=1536 tests/test_sqlite_wasm_large_upsert.js
+          node --max-old-space-size=1536 tests/test_step9_bootstrap_rollback.js
+
+      - name: Verify reliability dashboard in monolithic HTML
+        run: python tests/check_reliability_dashboard_release.py
+
+
+  result:
+    if: always()
+    needs: [regression, core]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Summarize independent workflow groups
+        env:
+          REGRESSION_STATUS: ${{ needs.regression.result }}
+          CORE_STATUS: ${{ needs.core.result }}
+          CHECK_SHA: ${{ github.sha }}
+        shell: bash
+        run: |
+          printf '## Build workflow groups\n\n' >> "$GITHUB_STEP_SUMMARY"
+          printf '| Group | Result |\n|---|---|\n' >> "$GITHUB_STEP_SUMMARY"
+          printf '| Python and JavaScript regression | %s |\n' "$REGRESSION_STATUS" >> "$GITHUB_STEP_SUMMARY"
+          printf '| CORE and SQLite acceptance | %s |\n' "$CORE_STATUS" >> "$GITHUB_STEP_SUMMARY"
+          printf '\nCommit: `%s`\n' "$CHECK_SHA" >> "$GITHUB_STEP_SUMMARY"
+          if [[ "$REGRESSION_STATUS" != success || "$CORE_STATUS" != success ]]; then
+            echo "One or more build workflow groups failed or were cancelled."
+            exit 1
+          fi

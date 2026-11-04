@@ -1,0 +1,56 @@
+.table-scroll { width: 100%; overflow-x: auto; }
+.reference-row { cursor: pointer; }
+.reference-row:hover td { background: #fafbfc; }
+.reference-actions { white-space: nowrap; text-align: right !important; }
+.link-button { appearance: none; border: 0; background: transparent; color: inherit; padding: 0; margin: 0; font: inherit; cursor: pointer; text-align: left; }
+.link-button:hover { color: var(--accent); }
+.status-badge.warning { background: #f5efe2; color: #7a5a20; }
+.status-badge.invalid { background: #f6e7e7; color: var(--danger); }
+.reference-detail-toolbar { display: flex; justify-content: space-between; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; }
+.reference-overview { align-items: stretch; }
+.consumer-list { display: flex; gap: 8px; flex-wrap: wrap; margin: 14px 0; }
+.consumer-chip { display: inline-flex; align-items: center; border: 1px solid #cdd8d5; background: var(--accent-soft); color: var(--accent); border-radius: 999px; padding: 6px 10px; font-size: 12px; font-weight: 700; }
+.reference-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-top: 16px; }
+.reference-metrics > div { border: 1px solid var(--line); border-radius: 10px; padding: 12px; min-width: 0; }
+.reference-metrics span:first-child { display: block; color: var(--text-soft); font-size: 11px; margin-bottom: 6px; }
+.reference-metrics strong { display: block; font-size: 13px; overflow-wrap: anywhere; }
+.compact-table th, .compact-table td { padding: 9px 8px; font-size: 12px; }
+.validation-block { border-radius: 10px; padding: 12px 14px; margin-top: 10px; font-size: 13px; line-height: 1.45; }
+.validation-block:first-child { margin-top: 0; }
+.validation-block.invalid { background: #f8eded; color: #713434; border: 1px solid #e6c7c7; }
+.validation-block.warning { background: #faf5e8; color: #6f5724; border: 1px solid #e8dcc0; }
+.validation-block ul { margin: 8px 0 0 18px; padding: 0; }
+.validation-ok { border: 1px solid #cdd8d5; background: var(--accent-soft); color: var(--accent); border-radius: 10px; padding: 12px 14px; font-size: 13px; }
+.preview-table-wrap { max-height: 520px; border: 1px solid var(--line); border-radius: 10px; }
+.preview-table thead th { position: sticky; top: 0; background: #fff; z-index: 1; }
+.empty-state.compact { min-height: 140px; }
+code { font-family: Consolas, Monaco, monospace; font-size: 11px; background: var(--surface-soft); border-radius: 5px; padding: 2px 5px; }
+
+@media (max-width: 1000px) {
+  .reference-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 720px) {
+  .reference-metrics { grid-template-columns: 1fr; }
+}
+
+.reference-control-grid { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(320px, .75fr); gap: 18px; align-items: start; }
+.reference-control-grid .reference-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.reference-upload-panel { min-width: 0; }
+.reference-current-state { border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; background: var(--surface-soft); margin: 12px 0; }
+.reference-current-state strong { display: block; margin: 4px 0 5px; font-size: 13px; }
+.reference-dropzone { min-height: 156px; margin-top: 12px; }
+.reference-history-title { margin-top: 18px; margin-bottom: 10px; font-weight: 700; font-size: 13px; }
+.reference-history { display: grid; gap: 10px; }
+.reference-history-item { display: grid; grid-template-columns: 12px minmax(0, 1fr); gap: 9px; position: relative; }
+.reference-history-item:not(:last-child)::before { content: ''; position: absolute; left: 5px; top: 14px; bottom: -12px; width: 1px; background: var(--line); }
+.reference-history-marker { width: 9px; height: 9px; border-radius: 50%; background: var(--accent); margin-top: 6px; position: relative; z-index: 1; }
+.reference-history-body { min-width: 0; padding-bottom: 3px; }
+.reference-history-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.reference-history-head strong { font-size: 12px; }
+.reference-history-file { font-size: 12px; margin-top: 3px; overflow-wrap: anywhere; }
+.reference-history-empty { border: 1px dashed var(--line); border-radius: 10px; padding: 12px; color: var(--text-soft); font-size: 12px; line-height: 1.45; }
+
+@media (max-width: 1100px) {
+  .reference-control-grid { grid-template-columns: 1fr; }
+}

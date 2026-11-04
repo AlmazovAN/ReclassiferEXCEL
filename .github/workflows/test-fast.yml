@@ -1,0 +1,46 @@
+name: Fast PR checks
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  fast:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Run shared fast suite
+        run: python tests/run_ci_manifest.py fast
+
+      - name: Summarize fast checks
+        if: always()
+        env:
+          CHECK_STATUS: ${{ job.status }}
+          CHECK_SHA: ${{ github.sha }}
+        shell: bash
+        run: |
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          with Path(os.environ["GITHUB_STEP_SUMMARY"]).open("a", encoding="utf-8") as out:
+              out.write("## Fast PR checks\n\n")
+              out.write(f"- Result: **{os.environ['CHECK_STATUS']}**\n")
+              out.write(f"- Commit: `{os.environ['CHECK_SHA']}`\n")
+              out.write("- Suite: `tests/ci_suites.json` → `fast`\n")
+          PY

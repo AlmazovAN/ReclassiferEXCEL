@@ -1,0 +1,19 @@
+/* PR9: passports are navigated with the document scroll, not an inner viewport.
+   The new rules are scoped to the standalone passports route. */
+.kpi-passports-page .kpi-passports-catalog-list,
+.kpi-passports-page .kpi-passports-sidebar,
+.kpi-passports-page .kpi-passports-group-items {
+  max-height: none !important;
+  height: auto;
+  overflow-y: visible !important;
+}
+.kpi-passports-page .kpi-passports-page-head {
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.kpi-passports-page .kpi-passports-sidebar-head {
+  margin-bottom: 8px;
+}
+.kpi-passports-page .kpi-passports-group {
+  margin-bottom: 12px;
+}

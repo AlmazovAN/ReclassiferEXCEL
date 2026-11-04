@@ -1,0 +1,260 @@
+{
+  "probe_environment": {
+    "node": "v24.22.0",
+    "python": "3.15",
+    "html_dir": "unset",
+    "timeout_seconds_per_js_test": 40
+  },
+  "deferred_javascript_tests": [
+    {
+      "file": "test_database_oom_diagnostics.js",
+      "status": "local-pass-candidate-for-ci",
+      "reason": "Not invoked by the current GitHub Actions workflow; promote after CI is split into the planned test layers."
+    },
+    {
+      "file": "test_database_oom_post_commit_release.js",
+      "status": "local-pass-candidate-for-ci",
+      "reason": "Not invoked by the current GitHub Actions workflow; promote after CI is split into the planned test layers."
+    },
+    {
+      "file": "test_database_oom_queue_resumption.js",
+      "status": "local-failure-needs-triage",
+      "reason": "Not invoked by the current GitHub Actions workflow; promote after CI is split into the planned test layers."
+    },
+    {
+      "file": "test_dataset_single_xlsx_stream.js",
+      "status": "local-pass-candidate-for-ci",
+      "reason": "Not invoked by the current GitHub Actions workflow; promote after CI is split into the planned test layers."
+    },
+    {
+      "file": "test_diagnostic_journal.js",
+      "status": "local-failure-needs-triage",
+      "reason": "Not invoked by the current GitHub Actions workflow; promote after CI is split into the planned test layers."
+    },
+    {
+      "file": "test_diagnostic_scope_test18.js",
+      "status": "local-pass-candidate-for-ci",
+      "reason": "Not invoked by the current GitHub Actions workflow; promote after CI is split into the planned test layers."
+    },
+    {
+      "file": "test_diagnostic_sessions_test15.js",
+      "status": "local-pass-candidate-for-ci",
+      "reason": "Not invoked by the current GitHub Actions workflow; promote after CI is split into the planned test layers."
+    },
+    {
+      "file": "test_diagnostic_v2_test16.js",
+      "status": "local-pass-candidate-for-ci",
+      "reason": "Not invoked by the current GitHub Actions workflow; promote after CI is split into the planned test layers."
+    },
+    {
+      "file": "test_diagnostics_history_test13.js",
+      "status": "local-pass-candidate-for-ci",
+      "reason": "Not invoked by the current GitHub Actions workflow; promote after CI is split into the planned test layers."
+    },
+    {
+      "file": "test_diagnostics_indexeddb_test13.js",
+      "status": "local-pass-candidate-for-ci",
+      "reason": "Not invoked by the current GitHub Actions workflow; promote after CI is split into the planned test layers."
+    },
+    {
+      "file": "test_diagnostics_test12.js",
+      "status": "local-failure-needs-triage",
+      "reason": "Not invoked by the current GitHub Actions workflow; promote after CI is split into the planned test layers."
+    },
+    {
+      "file": "test_heavy_job_gate_test15.js",
+      "status": "local-pass-candidate-for-ci",
+      "reason": "Not invoked by the current GitHub Actions workflow; promote after CI is split into the planned test layers."
+    },
+    {
+      "file": "test_kpi_preemption_test15.js",
+      "status": "local-pass-candidate-for-ci",
+      "reason": "Not invoked by the current GitHub Actions workflow; promote after CI is split into the planned test layers."
+    },
+    {
+      "file": "test_kpi_snapshot_cache_test14.js",
+      "status": "local-pass-candidate-for-ci",
+      "reason": "Not invoked by the current GitHub Actions workflow; promote after CI is split into the planned test layers."
+    },
+    {
+      "file": "test_kpi_sql_projection_test17.js",
+      "status": "local-pass-candidate-for-ci",
+      "reason": "Not invoked by the current GitHub Actions workflow; promote after CI is split into the planned test layers."
+    },
+    {
+      "file": "test_mb_batch_5000_integration_contract.js",
+      "status": "local-failure-needs-triage",
+      "reason": "Not invoked by the current GitHub Actions workflow; promote after CI is split into the planned test layers."
+    },
+    {
+      "file": "test_mb_batch_5000_multisheet.js",
+      "status": "local-pass-candidate-for-ci",
+      "reason": "Not invoked by the current GitHub Actions workflow; promote after CI is split into the planned test layers."
+    },
+    {
+      "file": "test_mb_batch_backpressure.js",
+      "status": "local-pass-candidate-for-ci",
+      "reason": "Not invoked by the current GitHub Actions workflow; promote after CI is split into the planned test layers."
+    },
+    {
+      "file": "test_mb_memory_diagnostics.js",
+      "status": "local-pass-candidate-for-ci",
+      "reason": "Not invoked by the current GitHub Actions workflow; promote after CI is split into the planned test layers."
+    },
+    {
+      "file": "test_mb_oom_diagnostics.js",
+      "status": "local-pass-candidate-for-ci",
+      "reason": "Not invoked by the current GitHub Actions workflow; promote after CI is split into the planned test layers."
+    },
+    {
+      "file": "test_mb_sqlite_staging.js",
+      "status": "local-pass-candidate-for-ci",
+      "reason": "Not invoked by the current GitHub Actions workflow; promote after CI is split into the planned test layers."
+    },
+    {
+      "file": "test_mb_staging_load.js",
+      "status": "local-pass-candidate-for-ci",
+      "reason": "Not invoked by the current GitHub Actions workflow; promote after CI is split into the planned test layers."
+    },
+    {
+      "file": "test_mb_worker_recycling.js",
+      "status": "local-pass-candidate-for-ci",
+      "reason": "Not invoked by the current GitHub Actions workflow; promote after CI is split into the planned test layers."
+    },
+    {
+      "file": "test_mobile_brigade_duplicate_recordkeys.js",
+      "status": "local-pass-candidate-for-ci",
+      "reason": "Not invoked by the current GitHub Actions workflow; promote after CI is split into the planned test layers."
+    },
+    {
+      "file": "test_mobile_brigade_long_text.js",
+      "status": "local-failure-needs-triage",
+      "reason": "Not invoked by the current GitHub Actions workflow; promote after CI is split into the planned test layers."
+    },
+    {
+      "file": "test_mobile_brigade_multisheet.js",
+      "status": "local-pass-candidate-for-ci",
+      "reason": "Not invoked by the current GitHub Actions workflow; promote after CI is split into the planned test layers."
+    },
+    {
+      "file": "test_mobile_brigade_zf_kf_21k.js",
+      "status": "local-timeout-needs-triage",
+      "reason": "Not invoked by the current GitHub Actions workflow; promote after CI is split into the planned test layers."
+    },
+    {
+      "file": "test_pr10_module_algorithm_ui.js",
+      "status": "local-failure-needs-triage",
+      "reason": "Not invoked by the current GitHub Actions workflow; promote after CI is split into the planned test layers."
+    },
+    {
+      "file": "test_profiler_toggle_freeze.js",
+      "status": "local-failure-needs-triage",
+      "reason": "Not invoked by the current GitHub Actions workflow; promote after CI is split into the planned test layers."
+    },
+    {
+      "file": "test_reclassification_classifier_index_v4_04.js",
+      "status": "local-pass-candidate-for-ci",
+      "reason": "Not invoked by the current GitHub Actions workflow; promote after CI is split into the planned test layers."
+    },
+    {
+      "file": "test_reclassification_classifier_normalizer_v4_04.js",
+      "status": "local-pass-candidate-for-ci",
+      "reason": "Not invoked by the current GitHub Actions workflow; promote after CI is split into the planned test layers."
+    },
+    {
+      "file": "test_reclassification_diagnostics_v4_06.js",
+      "status": "local-pass-candidate-for-ci",
+      "reason": "Not invoked by the current GitHub Actions workflow; promote after CI is split into the planned test layers."
+    },
+    {
+      "file": "test_reclassification_elements_v4_08.js",
+      "status": "local-pass-candidate-for-ci",
+      "reason": "Not invoked by the current GitHub Actions workflow; promote after CI is split into the planned test layers."
+    },
+    {
+      "file": "test_reclassification_engines_v4_02.js",
+      "status": "local-pass-candidate-for-ci",
+      "reason": "Not invoked by the current GitHub Actions workflow; promote after CI is split into the planned test layers."
+    },
+    {
+      "file": "test_reclassification_event_v4_06.js",
+      "status": "local-pass-candidate-for-ci",
+      "reason": "Not invoked by the current GitHub Actions workflow; promote after CI is split into the planned test layers."
+    },
+    {
+      "file": "test_reclassification_facts_v4_05.js",
+      "status": "local-pass-candidate-for-ci",
+      "reason": "Not invoked by the current GitHub Actions workflow; promote after CI is split into the planned test layers."
+    },
+    {
+      "file": "test_reclassification_failure_v4_09.js",
+      "status": "local-pass-candidate-for-ci",
+      "reason": "Not invoked by the current GitHub Actions workflow; promote after CI is split into the planned test layers."
+    },
+    {
+      "file": "test_reclassification_objects_v4_07.js",
+      "status": "local-pass-candidate-for-ci",
+      "reason": "Not invoked by the current GitHub Actions workflow; promote after CI is split into the planned test layers."
+    },
+    {
+      "file": "test_reclassification_path_review_v4_11.js",
+      "status": "local-pass-candidate-for-ci",
+      "reason": "Not invoked by the current GitHub Actions workflow; promote after CI is split into the planned test layers."
+    },
+    {
+      "file": "test_reclassification_review_policy_v4_12.js",
+      "status": "local-pass-candidate-for-ci",
+      "reason": "Not invoked by the current GitHub Actions workflow; promote after CI is split into the planned test layers."
+    },
+    {
+      "file": "test_reclassification_v4_02_build.js",
+      "status": "local-failure-needs-triage",
+      "reason": "Not invoked by the current GitHub Actions workflow; promote after CI is split into the planned test layers."
+    },
+    {
+      "file": "test_reclassification_v4_03_corpus.js",
+      "status": "local-pass-candidate-for-ci",
+      "reason": "Not invoked by the current GitHub Actions workflow; promote after CI is split into the planned test layers."
+    },
+    {
+      "file": "test_reclassification_v4_04_build.js",
+      "status": "local-failure-needs-triage",
+      "reason": "Not invoked by the current GitHub Actions workflow; promote after CI is split into the planned test layers."
+    },
+    {
+      "file": "test_reclassification_v4_05_build.js",
+      "status": "local-failure-needs-triage",
+      "reason": "Not invoked by the current GitHub Actions workflow; promote after CI is split into the planned test layers."
+    },
+    {
+      "file": "test_reclassification_v4_06_build.js",
+      "status": "local-failure-needs-triage",
+      "reason": "Not invoked by the current GitHub Actions workflow; promote after CI is split into the planned test layers."
+    },
+    {
+      "file": "test_reclassification_v4_07_build.js",
+      "status": "local-failure-needs-triage",
+      "reason": "Not invoked by the current GitHub Actions workflow; promote after CI is split into the planned test layers."
+    },
+    {
+      "file": "test_runtime_derived_lazy_test14.js",
+      "status": "local-pass-candidate-for-ci",
+      "reason": "Not invoked by the current GitHub Actions workflow; promote after CI is split into the planned test layers."
+    },
+    {
+      "file": "test_runtime_lazy_test13.js",
+      "status": "local-pass-candidate-for-ci",
+      "reason": "Not invoked by the current GitHub Actions workflow; promote after CI is split into the planned test layers."
+    },
+    {
+      "file": "test_sqlite_mobile_brigade_paged_export.js",
+      "status": "local-pass-candidate-for-ci",
+      "reason": "Not invoked by the current GitHub Actions workflow; promote after CI is split into the planned test layers."
+    },
+    {
+      "file": "test_xlsx_export_diagnostics_test11.js",
+      "status": "local-pass-candidate-for-ci",
+      "reason": "Not invoked by the current GitHub Actions workflow; promote after CI is split into the planned test layers."
+    }
+  ]
+}

@@ -1,0 +1,101 @@
+{
+  "schemaVersion": "2.0.0",
+  "kpiId": "sla",
+  "identity": {
+    "category": "organizationalReadiness",
+    "visibleInReport": true
+  },
+  "measurement": {
+    "kind": "ratio",
+    "unit": "%"
+  },
+  "calculator": {
+    "integration": "existing-calculator",
+    "handlerRef": "ReclassifierKpiCalculateSla.calculate",
+    "formulaVersion": "1.0.0",
+    "calculationContractVersion": "1.0.0",
+    "contractRef": "sla"
+  },
+  "data": {
+    "sourceRefs": [
+      {
+        "datasetId": "itsm_data",
+        "semanticFields": [
+          "closedAt",
+          "number",
+          "slaOverdue",
+          "division",
+          "territory",
+          "sdgrService",
+          "reclassifiedEquipment",
+          "sourceEquipment"
+        ]
+      }
+    ],
+    "filterDimensions": [
+      "branch",
+      "mine",
+      "equipmentClass",
+      "equipmentType",
+      "equipmentName"
+    ],
+    "periodGrain": "month"
+  },
+  "components": [
+    {
+      "key": "slaSuccessCount",
+      "label": "Выполнено в SLA",
+      "unit": "обращений",
+      "role": "numerator",
+      "valuePath": "components.slaSuccessCount"
+    },
+    {
+      "key": "slaOverdueCount",
+      "label": "Нарушение SLA",
+      "unit": "обращений",
+      "role": "context",
+      "valuePath": "components.slaOverdueCount"
+    },
+    {
+      "key": "slaTotalCount",
+      "label": "Всего с известным SLA",
+      "unit": "обращений",
+      "role": "denominator",
+      "valuePath": "components.slaTotalCount"
+    }
+  ],
+  "relatedMetrics": [
+    {
+      "id": "slaSuccessCount",
+      "componentKey": "slaSuccessCount",
+      "presentation": "defined-not-connected"
+    },
+    {
+      "id": "slaOverdueCount",
+      "componentKey": "slaOverdueCount",
+      "presentation": "defined-not-connected"
+    },
+    {
+      "id": "slaTotalCount",
+      "componentKey": "slaTotalCount",
+      "presentation": "defined-not-connected"
+    }
+  ],
+  "forecast": {
+    "policy": "historical-next-month",
+    "methodIds": [
+      "linear-trend",
+      "last-value"
+    ],
+    "chartNowcastConnected": false,
+    "chartPresentation": "no-reporting-month-overlay",
+    "selectionSurface": "none"
+  },
+  "presentation": {
+    "passport": "shared-four-tabs",
+    "card": "existing",
+    "chart": "existing-line-svg",
+    "pdf": "existing-snapshot-renderer",
+    "visualStyle": "unchanged"
+  }
+}
