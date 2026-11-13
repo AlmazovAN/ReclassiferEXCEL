@@ -7,7 +7,7 @@ const vm = require('node:vm');
 const html = fs.readFileSync(path.join(__dirname,'../dist/ReclassifierEXCEL.html'),'utf8');
 const source = html.match(/<script>([\s\S]*?)<\/script>/)[1];
 
-function openPage(session, {discarded = false, denyStorage = false} = {}) {
+function openPage(session, {discarded = false, denyStorage = false, navigation = false} = {}) {
   const nodes = new Map();
   const windowEvents = new Map();
   const downloads = [];
@@ -17,6 +17,7 @@ function openPage(session, {discarded = false, denyStorage = false} = {}) {
     children:[], dataset:{}, style:{setProperty(){},removeProperty(){}},
     setAttribute(){}, removeAttribute(){}, toggleAttribute(){},
     addEventListener(name, callback){this[name] = callback;},
+    focus(){this.focused = true;},
     append(...children){this.children.push(...children);},
     replaceChildren(...children){this.children = children;},
     querySelector(){return {};}
@@ -32,6 +33,12 @@ function openPage(session, {discarded = false, denyStorage = false} = {}) {
     return checkbox;
   });
   node('folders-worker').textContent = JSON.stringify('worker source');
+  const pageButtons = navigation ? ['folders','journal','rca-master'].map(id => {
+    const button = node('page-' + id);
+    button.dataset.page = id;
+    button.textContent = id;
+    return button;
+  }) : [];
   vm.runInNewContext(source,{
     location:{protocol:'file:',pathname:'/Reclassifier_Folders.html',hash:''},
     window:{
@@ -44,7 +51,7 @@ function openPage(session, {discarded = false, denyStorage = false} = {}) {
     },
     document:{
       wasDiscarded:discarded, getElementById:node, addEventListener(){},
-      querySelectorAll:selector=>selector === '[data-log]' ? checkboxes : [],
+      querySelectorAll:selector=>selector === '[data-log]' ? checkboxes : pageButtons,
       createTextNode:text=>({text}),
       createElement:()=>({click(){downloads.push({name:this.download,blob:objectUrl});}})
     },
@@ -60,6 +67,25 @@ function openPage(session, {discarded = false, denyStorage = false} = {}) {
   });
   return {node,windowEvents,downloads,get worker(){return worker;}};
 }
+
+test('RCA switches the existing sidebar and returns to Folders on every visit', () => {
+  const {node} = openPage(new Map(), {navigation:true});
+  assert.equal((html.match(/<aside\b/g) ?? []).length, 1);
+  for (let visit = 0; visit < 20; visit++) {
+    node('page-journal').click();
+    assert.equal(node('journal').hidden, false);
+    node('page-rca-master').click();
+    assert.equal(node('main-menu').hidden, true);
+    assert.equal(node('rca-menu').hidden, false);
+    assert.equal(node('rca-master').hidden, false);
+    assert.equal(node('journal').hidden, true);
+    node('rca-back').click();
+    assert.equal(node('folders').hidden, false);
+    assert.equal(node('rca-master').hidden, true);
+    assert.equal(node('rca-menu').hidden, true);
+    assert.equal(node('main-menu').hidden, false);
+  }
+});
 
 test('journal entries, checkboxes and an interrupted stage survive reloading the same tab', async () => {
   const session = new Map();

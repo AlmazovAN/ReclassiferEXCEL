@@ -16,7 +16,8 @@ function Invoke-Checked([string] $Name, [string] $Exe, [string[]] $Arguments) {
   }
 }
 
-$folderTests = @(Get-ChildItem -LiteralPath 'tests' -Filter 'test_folders*.cjs' -File |
+$folderTests = @(Get-ChildItem -LiteralPath 'tests' -File |
+    Where-Object { $_.Name -like 'test_folders*.cjs' -or $_.Name -like 'test_rca_*.cjs' } |
     Sort-Object Name | ForEach-Object { $_.FullName })
 
 $v4Tests = @(

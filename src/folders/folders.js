@@ -2,6 +2,10 @@
   'use strict';
 
   const pageButtons = document.querySelectorAll('[data-page]');
+  const rca = typeof createRcaState === 'function'
+    ? createRcaState(document.getElementById('rca-save-status')) : null;
+  const rcaUi = rca && document.getElementById('rca-content')?.nodeType === 1
+    ? createRcaUi(rca, downloadBlob) : null;
   const openedAsFile = location.protocol === 'file:';
   const supportsFolderPicker = typeof window.showDirectoryPicker === 'function';
   const select = document.getElementById('select-folder');
@@ -503,10 +507,25 @@
         if (current) item.setAttribute('aria-current', 'page');
         else item.removeAttribute('aria-current');
       }
+      const inRca = page === 'rca-master';
+      document.getElementById('main-menu').hidden = inRca;
+      document.getElementById('rca-menu').hidden = !inRca;
+      if (inRca) document.getElementById('rca-back').focus();
       document.title = 'Reclassifier — ' + button.textContent;
       capture('general', 'Открыта страница «' + button.textContent + '».');
     });
   }
+
+  document.getElementById('rca-back')?.addEventListener('click', async () => {
+    if (rca && !rca.canLeave()) {
+      const saved = await rca.flushPending();
+      if (!saved) return;
+      rcaUi?.showSaved(saved);
+    }
+    const foldersButton = Array.from(pageButtons).find(button => button.dataset.page === 'folders');
+    foldersButton.click();
+    foldersButton.focus();
+  });
 
   function showStatus(message, error = false) {
     status.textContent = message;
@@ -518,6 +537,7 @@
     worker = null;
     root = null;
     importedFiles = null;
+    void rca?.openWorkspace();
     folderArt.removeAttribute('data-connected');
     showShelf('idle');
     referencesReady = false;
@@ -546,9 +566,14 @@
       return;
     }
     const {name,files} = selection;
+    if ((rca && !rca.canLeave()) || rcaUi?.hasTemporaryChanges()) {
+      showStatus('Сначала сохраните изменения RCA или экспортируйте JSON.', true);
+      return;
+    }
     resetWorkspace();
     root = {name};
     importedFiles = files;
+    void rca?.openWorkspace({mode: 'import', files});
     folderArt.setAttribute('data-connected','');
     showStatus('Папка «'+name+'» импортирована для чтения. Для новых входных файлов повторите импорт.');
     capture('import_export','Рабочая папка импортирована для чтения.');
@@ -556,6 +581,10 @@
   });
 
   select.addEventListener('click', async () => {
+    if ((rca && !rca.canLeave()) || rcaUi?.hasTemporaryChanges()) {
+      showStatus('Сначала сохраните изменения RCA или экспортируйте JSON.', true);
+      return;
+    }
     let offerImport = false;
     busy = true;
     controls();
@@ -563,6 +592,7 @@
       const candidate = await window.showDirectoryPicker({ mode: 'readwrite' });
       const started = performance.now();
       const invalid = await findInvalidWorkspaceFolders(candidate);
+      if ((rca && !rca.canLeave()) || rcaUi?.hasTemporaryChanges()) return;
       resetWorkspace();
       capture('performance', 'Проверка папки: ' + Math.round(performance.now() - started) + ' мс.');
       if (invalid.length) {
@@ -571,6 +601,7 @@
         return;
       }
       root = candidate;
+      void rca?.openWorkspace({mode: 'write', handle: candidate});
       folderArt.setAttribute('data-connected','');
       showStatus('Выбрана папка «' + candidate.name + '».');
       capture('import_export', 'Структура рабочей папки проверена.');

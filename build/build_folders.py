@@ -10,8 +10,15 @@ SOURCE = ROOT / "src" / "folders"
 def main() -> Path:
     html = (SOURCE / "index.html").read_text(encoding="utf-8-sig")
     for marker, assets in (
-        ("STYLE", ("folders.css",)),
-        ("SCRIPT", ("journal/journal.js", "workspace/selection.js", "folders.js")),
+        ("STYLE", ("folders.css", "rca-master.css")),
+        ("SCRIPT", (
+            "journal/journal.js", "workspace/selection.js", "rca-master/config.js",
+            "rca-master/validation.js", "rca-master/registry.js", "rca-master/repository-json.js",
+            "rca-master/state.js", "rca-master/tree-model.js", "rca-master/ui.js",
+            "rca-master/passport.js", "rca-master/evidence.js", "rca-master/actions.js",
+            "rca-master/dictionaries.js", "rca-master/archive-json.js", "rca-master/dictionaries-modal.js",
+            "rca-master/tree-view.js", "rca-master/report.js", "folders.js",
+        )),
     ):
         token = f"/*__FOLDERS_{marker}__*/"
         if html.count(token) != 1:

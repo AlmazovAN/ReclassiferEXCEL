@@ -9,11 +9,22 @@
 </head>
 <body>
   <aside class="sidebar">
+    <div id="main-menu">
     <div class="brand"><span class="brand-mark" aria-hidden="true">R</span> Reclassifier</div>
     <nav aria-label="Основное меню">
       <button type="button" data-page="folders" aria-current="page"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/></svg>Папки</button>
       <button type="button" data-page="journal"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4h12a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Zm3 5h6m-6 3h6m-6 3h4"/></svg>Журнал</button>
+      <button type="button" data-page="rca-master">RCA Master</button>
     </nav>
+    </div>
+    <div id="rca-menu" hidden>
+      <button type="button" class="secondary" id="rca-back">← RCA Master</button>
+      <button type="button" class="primary" id="rca-add" disabled>+ Добавить проблему</button>
+      <input type="search" id="rca-search" aria-label="Поиск по реестру расследований" placeholder="PRB, название, оборудование" disabled>
+      <h2 id="rca-register-title">Реестр расследований</h2>
+      <ul id="rca-register" aria-labelledby="rca-register-title"></ul>
+      <button type="button" class="secondary" id="rca-dictionaries" disabled>Справочники</button>
+    </div>
   </aside>
 
   <main>
@@ -102,6 +113,14 @@
         </form>
         <button type="button" class="primary" id="download-log-json" disabled>Скачать журнал в JSON</button>
       </article>
+    </section>
+    <section id="rca-master" aria-labelledby="rca-master-title" hidden>
+      <header class="page-heading">
+        <h1 id="rca-master-title">RCA Master</h1>
+        <p id="rca-save-status" role="status"></p>
+        <p id="rca-message" role="alert"></p>
+      </header>
+      <div id="rca-content"><p>Выберите или создайте проблему</p></div>
     </section>
   </main>
   <script type="application/json" id="folders-worker">/*__FOLDERS_WORKER__*/</script>
