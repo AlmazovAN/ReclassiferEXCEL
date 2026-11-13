@@ -20,6 +20,26 @@ for rel in paths:
             if obsolete in content:
                 raise SystemExit(f"Obsolete database branch remains in {rel}: {obsolete}")
 
+# The Folders builder consumes these files directly, outside engine-files.json.
+# Check both worker support files and HTML/UI assets before invoking the build.
+for rel in (
+    "vendor/js-sha256-0.11.1.js",
+    "vendor/js-sha256-LICENSE.txt",
+    "src/folders/storage.js",
+    "src/folders/limits.js",
+    "src/folders/workflows/run-reclassification.js",
+    "src/folders/worker.js",
+    "src/folders/journal/journal.js",
+    "src/folders/workspace/selection.js",
+    "src/folders/folder-art.html",
+    "src/folders/references-art.html",
+    "src/folders/export-art.html",
+    "build/Start_Reclassifier.cmd",
+    "build/serve_folders.py",
+):
+    if not (ROOT / rel).is_file():
+        raise SystemExit(f"Missing direct Folders build input: {rel}")
+
 for rel in (
     "src/folders/index.html",
     "src/folders/folders.js",
