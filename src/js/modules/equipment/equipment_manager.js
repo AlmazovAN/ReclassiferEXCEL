@@ -51,16 +51,18 @@
     for (let i = match.headerRowIndex + 1; i < match.rows.length; i += 1) {
       if (!equipmentRowEmpty(match.rows[i])) rows += 1;
     }
-    return { fileName: file.name, rows, columns: hasStatus ? 26 : 25, hasStatus };
+    const columns = EQUIPMENT_COMBINED_COLUMNS.filter(column =>
+      header.includes(normalizeEquipmentHeader(column))).length;
+    return { fileName: file.name, rows, columns, hasStatus };
   }
 
   function setEquipmentStagingFiles(fileList) {
     const files = Array.from(fileList || []);
     equipmentDatasetLifecycle.discard('combined');
     state.equipmentStaging = {
-      files: files.slice(0, 6), catalogs: {}, combined: null,
+      files: files.slice(0, 8), catalogs: {}, combined: null,
       controlCombined: null, processedAt: null,
-      messages: files.length > 6 ? ['Выбрано больше шести файлов. В обработку взяты первые 6.'] : []
+      messages: files.length > 8 ? ['Выбрано больше восьми файлов. В обработку взяты первые 8.'] : []
     };
   }
 
@@ -219,8 +221,6 @@
         hasErrors = true;
         continue;
       }
-      // Multiple files of one source type are supported only when their
-      // affected mine scopes do not overlap (checked before publication).
 
       try {
         const instance = await readEquipmentFile(file, identified.id, 'user');
@@ -250,26 +250,13 @@
           const instances = scopedCandidates.get(id);
           if (!instances?.length) continue;
           try {
-            const field = equipmentConfig[id].partitionField;
             const current = state.equipmentCatalogs[id];
-            const labels = new Set();
-            for (const instance of instances) {
-              const sourceLabels = new Set((instance.records || [])
-                .map(row => partitionApi.key(row?.[field]))
-                .filter(value => value && value !== partitionApi.key(partitionApi.UNKNOWN)));
-              for (const label of sourceLabels) {
-                if (labels.has(label)) {
-                  throw new Error(id + ': одна секция встречается в нескольких файлах.');
-                }
-                labels.add(label);
-              }
-            }
             const owners = partitionApi.ownership({
               mounted: staging.catalogs.mounted || state.equipmentCatalogs.mounted,
               stationary: staging.catalogs.stationary || state.equipmentCatalogs.stationary
             });
             const merged = partitionApi.merge(id, current,
-              instances.flatMap(instance => instance.records), owners);
+              partitionApi.mergeFileRows(id, instances.map(instance => instance.records), owners), owners);
             const files = instances.map(instance => instance.meta?.fileName || '—');
             const warnings = instances.flatMap(instance => instance.validation?.warnings || []);
             staging.catalogs[id] = {

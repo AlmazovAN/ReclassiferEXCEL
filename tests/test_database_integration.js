@@ -522,6 +522,25 @@ const file = {
     throw new Error('Overlapping Stationary mine sections must be blocked before SQLite batch write.');
   }
 
+  const kf = equipmentPlan('Mine-A', 'S-A-NEW', 'Stationary KF.xlsx');
+  kf.records[0].group_number = '5';
+  kf.records[0].level = '100';
+  const zf = equipmentPlan('Mine-A', 'S-A-NEW', 'Stationary ZF.xlsx');
+  zf.records[0].unit_department = 'Department';
+  zf.records[0].level = null;
+  await engine.commitBatch([kf, zf]);
+  const imported = equipmentStore.stationary.records.find(record => record.id === 'S-A-NEW');
+  if (imported.group_number !== '5' || imported.unit_department !== 'Department' || imported.level !== null) {
+    throw new Error('SQLite Equipment batch must keep absent columns and apply explicit blanks.');
+  }
+  const zfUpdate = equipmentPlan('Mine-A', 'S-A-NEW', 'Stationary ZF update.xlsx');
+  zfUpdate.records[0].unit_department = 'Updated';
+  await engine.commitBatch([zfUpdate]);
+  const updated = equipmentStore.stationary.records.find(record => record.id === 'S-A-NEW');
+  if (updated.group_number !== '5' || updated.unit_department !== 'Updated') {
+    throw new Error('A later SQLite Equipment import must preserve stored fields absent from the workbook.');
+  }
+
   console.log('SQLite Dataset Integration Engine: OK');
 })().catch(error => {
   console.error(error);

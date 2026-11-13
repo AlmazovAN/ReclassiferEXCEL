@@ -1,0 +1,1 @@
+const state = { equipmentCatalogs: {} }; function log() {}

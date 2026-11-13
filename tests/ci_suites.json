@@ -18,6 +18,9 @@
           "tests",
           "-p",
           "test_*.py"
+        ],
+        [
+          "build/build_folders.py"
         ]
       ],
       "javascript": [
@@ -32,6 +35,13 @@
         "tests/test_ktg.js",
         "tests/test_kpi_catalog.js",
         "tests/test_kpi_report_view_model.js"
+      ],
+      "node_test": [
+        "tests/test_folders_export_lock.cjs",
+        "tests/test_folders_import_access.cjs",
+        "tests/test_folders_journal.cjs",
+        "tests/test_folders_reclassification.cjs",
+        "tests/test_folders_streaming_mb.cjs"
       ]
     }
   }

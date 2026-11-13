@@ -843,23 +843,9 @@
     for (const id of EQUIPMENT_SOURCE_IDS) {
       const incomingPlans = groups.get(id);
       if (!incomingPlans?.length) continue;
-      const seenSections = new Set();
-      for (const plan of incomingPlans) {
-        const labels = new Set(plan.records.map(row =>
-          partitionApi.key(row?.[plan.definition.partitionField])));
-        if (labels.has('') || labels.has(partitionApi.key(partitionApi.UNKNOWN))) {
-          throw new Error('Equipment '+id+': секция не определена, удаление запрещено.');
-        }
-        for (const label of labels) {
-          if (seenSections.has(label)) throw new Error(
-            'Секция '+label+' Dataset '+id+' присутствует в нескольких файлах.'
-          );
-          seenSections.add(label);
-        }
-      }
       const owners = partitionApi.ownership(catalogs);
       const merged = partitionApi.merge(id, catalogs[id],
-        incomingPlans.flatMap(plan => plan.records), owners);
+        partitionApi.mergeFileRows(id, incomingPlans.map(plan => plan.records), owners), owners);
       const last = incomingPlans.at(-1);
       catalogs[id] = integrationEquipmentPlanInstance(last, merged.records);
       catalogs[id].joinIndex = merged.joinIndex;

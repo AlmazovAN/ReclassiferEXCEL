@@ -7,14 +7,17 @@
   const EQUIPMENT_SOURCE_IDS = ['mounted', 'stationary', 'transport', 'transport_start_points', 'zabbix'];
   const EQUIPMENT_CATALOG_ORDER = ['combined', ...EQUIPMENT_SOURCE_IDS];
   const EQUIPMENT_STATUS_COLUMN = 'Статус эксплуатации';
+  const EQUIPMENT_VARIANT_COLUMNS = ['transport_or_warehouse', 'identifier', 'level', 'group_number'];
   const EQUIPMENT_COMBINED_COLUMNS = [
     'source_catalog', 'id', 'unit', 'unit_department', 'name', 'equipment_type', 'location', 'address', 'horizon',
     'transport', 'not_working_since', EQUIPMENT_STATUS_COLUMN, 'customer', 'parent', 'commissioning_date',
     'transport__id', 'transport__transport_type', 'transport__description', 'transport__location', 'transport__self_moving_type',
     'zabbix__id', 'zabbix__name', 'zabbix__site_address_b', 'zabbix__site_address_c',
-    'zabbix__zabbix_equipment_type__name', 'zabbix__update'
+    'zabbix__zabbix_equipment_type__name', 'zabbix__update',
+    ...EQUIPMENT_VARIANT_COLUMNS
   ];
-  const EQUIPMENT_LEGACY_COMBINED_COLUMNS = EQUIPMENT_COMBINED_COLUMNS.filter(column => column !== EQUIPMENT_STATUS_COLUMN);
+  const EQUIPMENT_LEGACY_COMBINED_COLUMNS = EQUIPMENT_COMBINED_COLUMNS.filter(column =>
+    column !== EQUIPMENT_STATUS_COLUMN && !EQUIPMENT_VARIANT_COLUMNS.includes(column));
 
   const equipmentConfig = {
     mounted: {
@@ -26,7 +29,7 @@
       sourceCatalog: 'Mounted',
       filePattern: /^CatalogMountedEquipment(?:-(\d{4}-\d{2}-\d{2}))?/i,
       requiredHeaders: ['id', 'unit', 'name', 'equipment_type', 'location', 'transport', 'not_working_since', 'customer', 'parent', 'commissioning_date'],
-      approvedColumns: ['source_catalog', 'id', 'unit', 'name', 'equipment_type', 'location', 'transport', 'not_working_since', 'customer', 'parent', 'commissioning_date']
+      approvedColumns: ['source_catalog', 'id', 'unit', 'name', 'equipment_type', 'location', 'transport', 'not_working_since', 'customer', 'parent', 'commissioning_date', 'unit_department', ...EQUIPMENT_VARIANT_COLUMNS]
     },
     stationary: {
       allowEmpty: equipmentDatasetDefinition('stationary').allowEmpty,
@@ -36,8 +39,8 @@
       partitionField: equipmentDatasetDefinition('stationary').partitionField,
       sourceCatalog: 'Stationary',
       filePattern: /^CatalogStationaryEquipment(?:-(\d{4}-\d{2}-\d{2}))?/i,
-      requiredHeaders: ['id', 'unit', 'unit_department', 'name', 'equipment_type', 'location', 'address', 'horizon', 'transport', 'not_working_since', 'customer', 'parent', 'commissioning_date'],
-      approvedColumns: ['source_catalog', 'id', 'unit', 'unit_department', 'name', 'equipment_type', 'location', 'address', 'horizon', 'transport', 'not_working_since', 'customer', 'parent', 'commissioning_date']
+      requiredHeaders: ['id', 'unit', 'name', 'equipment_type', 'location', 'address', 'horizon', 'transport', 'not_working_since', 'customer', 'parent', 'commissioning_date'],
+      approvedColumns: ['source_catalog', 'id', 'unit', 'unit_department', 'name', 'equipment_type', 'location', 'address', 'horizon', 'transport', 'not_working_since', 'customer', 'parent', 'commissioning_date', ...EQUIPMENT_VARIANT_COLUMNS]
     },
     transport: {
       partitionField: equipmentDatasetDefinition('transport').partitionField,

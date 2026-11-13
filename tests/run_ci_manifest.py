@@ -26,6 +26,9 @@ def main() -> int:
 
     commands = [([sys.executable, *args], "Python") for args in suite.get("python", [])]
     commands.extend((["node", test], "JavaScript") for test in suite.get("javascript", []))
+    node_tests = suite.get("node_test", [])
+    if node_tests:
+        commands.append((["node", "--test", *node_tests], "JavaScript test runner"))
     for command, runtime in commands:
         print(f"\n>>> {' '.join(command)}", flush=True)
         result = subprocess.run(command, cwd=ROOT, check=False)

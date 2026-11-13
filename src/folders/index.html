@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; worker-src blob:; base-uri 'none'; form-action 'none'">
+  <title>Reclassifier — Папки</title>
+  <style>/*__FOLDERS_STYLE__*/</style>
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="brand"><span class="brand-mark" aria-hidden="true">R</span> Reclassifier</div>
+    <nav aria-label="Основное меню">
+      <button type="button" data-page="folders" aria-current="page"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/></svg>Папки</button>
+      <button type="button" data-page="journal"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4h12a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Zm3 5h6m-6 3h6m-6 3h4"/></svg>Журнал</button>
+    </nav>
+  </aside>
+
+  <main>
+    <section id="folders" aria-labelledby="folders-title">
+      <header class="page-heading">
+        <h1 id="folders-title">Папки</h1>
+        <p>Управление рабочей папкой, справочниками и выгрузками.</p>
+      </header>
+      <article class="card illustrated-card" aria-labelledby="workspace-title">
+        <div>
+        <h2 id="workspace-title">Рабочая папка</h2>
+        <button type="button" id="import-folder" class="primary">Выбрать папку для импорта</button>
+        <button type="button" id="select-folder" class="secondary">Подключить папку для записи</button>
+        <input type="file" id="folder-files" webkitdirectory multiple hidden>
+        <p id="folder-status" role="status">Папка ещё не выбрана.</p>
+        </div>
+        <!--__FOLDER_ART__-->
+      </article>
+      <article class="card operation" aria-labelledby="references-title">
+        <div class="reference-header illustrated-card">
+        <div>
+        <h2 id="references-title">Справочники</h2>
+        <button type="button" class="primary" id="refresh-references" disabled>Обновить справочники</button>
+        <p id="reference-status" class="operation-status" role="status"></p>
+        <progress id="reference-progress" max="100" aria-label="Прогресс обновления справочников" hidden></progress>
+        </div>
+        <!--__REFERENCES_ART__-->
+        </div>
+        <ul id="reference-badges" class="badges"></ul>
+        <div id="inactive-references" hidden>
+          <h3>Оборудование МБ и классификатор отказов</h3>
+          <ul id="inactive-badges" class="badges"></ul>
+        </div>
+      </article>
+      <article class="card operation exports-card" aria-labelledby="exports-title">
+        <div class="exports-controls">
+        <h2 id="exports-title">Выгрузки</h2>
+        <button type="button" class="primary" id="refresh-exports" disabled>Обновить выгрузки</button>
+        <p id="export-status" class="operation-status" role="status"></p>
+        <progress id="export-progress" max="100" aria-label="Прогресс обновления выгрузок" hidden></progress>
+        <ul id="export-badges" class="badges"></ul>
+        <div id="export-files" class="export-files" hidden>
+          <p>Закройте итоговые книги в Excel и сохраните обе книги в папки ITSM и MB. Если прямое сохранение недоступно, скачайте книги и замените их через Проводник.</p>
+          <div id="export-file-actions"></div>
+          <p id="save-status" class="operation-status" role="status"></p>
+        </div>
+        </div>
+        <!--__EXPORT_ART__-->
+      </article>
+      <article class="card operation reclassification-card" aria-labelledby="reclassification-title">
+        <h2 id="reclassification-title">Реклассификация</h2>
+        <button type="button" class="primary" id="run-reclassification" disabled>Реклассификация</button>
+        <button type="button" class="secondary" id="pick-reclassification-source" hidden>Выбрать исходную выгрузку ITSM</button>
+        <input type="file" id="reclassification-source" accept=".xlsx,.xlsm,.xls,.xlsb" hidden>
+        <div class="reclassification-dates" role="group" aria-label="Дата выполнения">
+          <span>Дата выполнения</span>
+          <label>с <input type="date" id="reclassification-from"></label>
+          <label>по <input type="date" id="reclassification-to"></label>
+        </div>
+        <p id="reclassification-status" class="operation-status" role="status">Источник — export_ITSM.xlsx. Пустые даты означают расчёт без ограничения периода.</p>
+        <progress id="reclassification-progress" max="100" aria-label="Прогресс реклассификации" hidden></progress>
+        <button type="button" class="secondary" id="download-reclassification" hidden>Скачать диагностику Excel</button>
+      </article>
+      <details class="card" id="operation-log">
+        <summary>Журнал операций</summary>
+        <button type="button" class="primary" id="download-log" disabled>Скачать журнал (.txt)</button>
+        <p id="operation-log-empty">Записей пока нет. Реклассификация записывается автоматически. Остальные категории можно включить на странице «Журнал».</p>
+        <pre id="operation-lines"></pre>
+      </details>
+    </section>
+
+    <section id="journal" aria-labelledby="journal-title" hidden>
+      <header class="page-heading">
+        <h1 id="journal-title">Журнал</h1>
+        <p>Настройка регистрации событий и скачивание журнала.</p>
+      </header>
+      <article class="card" aria-labelledby="logging-title">
+        <h2 id="logging-title">Регистрация событий</h2>
+        <p id="journal-storage-status">Отметьте нужные категории, чтобы начать запись. Журнал сохраняется в этой вкладке при перезагрузке, если браузер разрешает хранилище сессии.</p>
+        <form class="settings" autocomplete="off">
+          <label><input type="checkbox" data-log="general"> <span><strong>Общие события</strong><small>Переходы между страницами</small></span></label>
+          <label><input type="checkbox" data-log="import_export"> <span><strong>Импорт и экспорт</strong><small>Этапы и результаты операций с файлами</small></span></label>
+          <label><input type="checkbox" data-log="runtime"> <span><strong>Ошибки приложения</strong><small>Сбои исполнения</small></span></label>
+          <label><input type="checkbox" data-log="diagnostics"> <span><strong>Расширенная диагностика</strong><small>Технические сведения о среде запуска</small></span></label>
+          <label><input type="checkbox" data-log="performance"> <span><strong>Производительность</strong><small>Время операций и замеры памяти страницы и обработчика</small></span></label>
+        </form>
+        <button type="button" class="primary" id="download-log-json" disabled>Скачать журнал в JSON</button>
+      </article>
+    </section>
+  </main>
+  <script type="application/json" id="folders-worker">/*__FOLDERS_WORKER__*/</script>
+  <script>/*__FOLDERS_SCRIPT__*/</script>
+</body>
+</html>

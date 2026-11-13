@@ -163,7 +163,12 @@
         const record = { source_catalog: config.sourceCatalog };
         for (const field of config.approvedColumns) {
           if (field === 'source_catalog') continue;
-          record[field] = equipmentFieldValue(rawEquipmentValue(row, match.positions, field), field);
+          const column = field === 'identifier' && catalogId === 'mounted' &&
+            !Object.hasOwn(match.positions, 'identifier') ? 'identifier_number' : field;
+          // Only columns present in the workbook participate in updates.
+          if (Object.hasOwn(match.positions, column)) {
+            record[field] = equipmentFieldValue(rawEquipmentValue(row, match.positions, column), field);
+          }
         }
         const rawNotWorkingSince = rawEquipmentValue(row, match.positions, 'not_working_since');
         if (equipmentHasValue(rawNotWorkingSince) && !equipmentDateRecognized(rawNotWorkingSince)) invalidNotWorkingSince += 1;

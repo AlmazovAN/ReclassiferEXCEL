@@ -306,7 +306,7 @@
 
     return {
       createdAt: exactOrSuffix(['Дата создания Вызова']),
-      completedAt: exactOrSuffix(['Дата выполнения обращения']),
+      completedAt: exactOrSuffix(['Дата выполнения обращения','Дата выполнения']),
       closedAt: exactOrSuffix(['Дата закрытия']),
       closingCode: exact('Код закрытия'),
       state: exact('Состояние'),
@@ -320,12 +320,12 @@
       sourceElement: exact('Элемент'),
       sourceFault: exact('Неисправность'),
       sourceReason: exact('Причина инцидента'),
-      description: exact('Категорированная информация обращения.Описание'),
-      closureNote: firstExact(['Примечания к разрешению', 'Примечания к закрытию (объединённые с доп)', 'Примечание к закрытию', 'Примечания к закрытию'])
+      description: firstExact(['Категорированная информация обращения.Описание','Описание обращения','Описание']),
+      closureNote: firstExact(['Примечания к разрешению', 'Примечание к разрешению', 'Примечания к закрытию (объединённые с доп)', 'Примечание к закрытию', 'Примечания к закрытию'])
     };
   }
 
-  function findInputTable(workbook) {
+  function findInputTable(workbook, requiredFields=REQUIRED_FIELDS) {
     const preferred = workbook.SheetNames.includes('Обращение')
       ? ['Обращение', ...workbook.SheetNames.filter(name => name !== 'Обращение')]
       : workbook.SheetNames;
@@ -337,7 +337,7 @@
       const limit = Math.min(rows.length, HEADER_SEARCH_LIMIT);
       for (let rowIndex = 0; rowIndex < limit; rowIndex += 1) {
         const positions = headerPositions(rows[rowIndex] || []);
-        const missing = REQUIRED_FIELDS.filter(field => positions[field] < 0 &&
+        const missing = requiredFields.filter(field => positions[field] < 0 &&
           !(field === 'completedAt' && positions.closedAt >= 0));
         if (!missing.length) {
           return {
@@ -345,7 +345,7 @@
             bestCandidate: null
           };
         }
-        const score = REQUIRED_FIELDS.length - missing.length;
+        const score = requiredFields.length - missing.length;
         if (!bestCandidate || score > bestCandidate.score) {
           bestCandidate = { sheetName, rowIndex, score, missing };
         }
@@ -355,18 +355,26 @@
     return { table: null, bestCandidate };
   }
 
-  function parseItsmWorkbook(inputBuffer) {
+  function parseItsmWorkbook(inputBuffer, {rawClosureNote=false, includeCompletedDate, dateCells=true}={}) {
     if (!(inputBuffer instanceof ArrayBuffer)) {
       throw new Error('Reclassification Worker не получил выбранный ITSM Excel.');
     }
 
     const workbook = globalThis.XLSX.read(new Uint8Array(inputBuffer), {
       type: 'array',
-      cellDates: true,
+      cellDates: dateCells,
       cellFormula: true
     });
-    const discovery = findInputTable(workbook);
+    const discovery = findInputTable(workbook,rawClosureNote
+      ? ['number','description','closureNote'] : REQUIRED_FIELDS);
     if (!discovery.table) {
+      if (rawClosureNote) {
+        const missing = discovery.bestCandidate?.missing ?? ['number','description','closureNote'];
+        const columns = missing.map(field=>'«'+HEADER_LABELS[field]+'»').join(', ');
+        const error = new Error('В книге ITSM не найдены колонки: '+columns+'. Выберите исходную выгрузку ITSM.');
+        error.code = 'RECLASS_SOURCE_COLUMNS';
+        throw error;
+      }
       const best = discovery.bestCandidate;
       if (best && best.score >= 4) {
         const missing = best.missing.map(field => '«' + HEADER_LABELS[field] + '»').join(', ');
@@ -383,6 +391,11 @@
 
     const table = discovery.table;
     const pos = table.positions;
+    if (includeCompletedDate && pos.completedAt < 0) {
+      const error = new Error('В книге отсутствует колонка «Дата выполнения». Выберите исходную выгрузку ITSM.');
+      error.code = 'RECLASS_SOURCE_COLUMNS';
+      throw error;
+    }
 
     const records = [];
     for (let rowIndex = table.headerRowIndex + 1; rowIndex < table.rows.length; rowIndex += 1) {
@@ -393,7 +406,7 @@
         return index >= 0 && row[index] !== null && row[index] !== undefined && String(row[index]).trim() !== '';
       });
       if (!hasSourceData) continue;
-      if (!number) continue;
+      if (!number || (includeCompletedDate && !includeCompletedDate(row[pos.completedAt]))) continue;
 
       records.push({
         createdAt: row[pos.createdAt] ?? null,
@@ -409,13 +422,13 @@
         sourceFault: text(row[pos.sourceFault]),
         sourceReason: text(row[pos.sourceReason]),
         description: String(row[pos.description] ?? '').trim() || null,
-        closureNote: globalThis.ReclassifierItsmWorkerProcessor.combineClosureNotes(
+        closureNote: rawClosureNote ? text(row[pos.closureNote]) : globalThis.ReclassifierItsmWorkerProcessor.combineClosureNotes(
           row[pos.closureNote], pos.extraReason >= 0 ? row[pos.extraReason] : null
         )
       });
     }
 
-    if (!records.length) throw new Error('Выбранная ITSM-выгрузка не содержит строк с номером обращения.');
+    if (!records.length && !includeCompletedDate) throw new Error('Выбранная ITSM-выгрузка не содержит строк с номером обращения.');
     return { records, sheetName: table.sheetName };
   }
 

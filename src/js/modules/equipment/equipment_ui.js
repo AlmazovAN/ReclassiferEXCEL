@@ -141,7 +141,7 @@
 
     const uploadPanel = id === 'combined'
       ? '<aside class="card flat reference-upload-panel"><h3>Загрузка обновлений</h3>' +
-        '<p>Выберите от 1 до 6 Excel-файлов. Можно обновить один или несколько источников — Mounted, Stationary, Transport, StartPoints и Zabbix; остальные будут взяты из текущего рабочего набора. Equipment_Combined может присутствовать шестым только как контрольный файл и не используется как источник пересчёта.</p>' +
+        '<p>Выберите от 1 до 8 Excel-файлов. Можно обновить один или несколько источников — Mounted, Stationary, Transport, StartPoints и Zabbix; остальные будут взяты из текущего рабочего набора. Equipment_Combined может присутствовать только как контрольный файл и не используется как источник пересчёта.</p>' +
         '<div class="dropzone reference-dropzone" id="equipmentCombinedDropzone"><div><div class="dropzone-title">Перетащите Excel сюда</div><div class="dropzone-text">или выберите один / несколько файлов</div><button class="button" id="selectEquipmentCombinedFilesButton">Выбрать файлы</button></div></div>' +
         '<div class="reference-history-title">Подготовленная партия</div>' + equipmentStagingMarkup() +
         '<div class="equipment-action-row"><button class="button primary" id="processEquipmentButton"' + (state.equipmentStaging.files.length ? '' : ' disabled') + '>Обработать</button></div>' +

@@ -346,6 +346,9 @@ jobs:
       - name: Verify PR8 five Equipment mine partitions
         run: node tests/test_equipment_partition_pr8.js
 
+      - name: Test Equipment catalog column variants
+        run: node tests/test_equipment_column_variants.js
+
       - name: Verify PR7 staged recalculation workflow
         run: node tests/test_recalculation_workspace_pr7.js
 

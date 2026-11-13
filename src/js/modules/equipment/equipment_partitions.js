@@ -83,6 +83,52 @@
     }
     return result;
   }
+  function mergeFileRows(id, batches, owners) {
+    const baseCatalog = id === 'mounted' || id === 'stationary';
+    const sections = new Map();
+    const recordsById = new Map();
+
+    for (const rows of batches) {
+      const fileSections = new Map();
+      for (const row of rows) {
+        const unit = id === 'zabbix' ? owners?.get(idKey(row.equipment)) || row.__partition_unit : row.unit;
+        const section = key(unit);
+        if (!section || section === key(UNKNOWN)) {
+          throw new Error('Equipment ' + id + ': секция не определена.');
+        }
+        if (!fileSections.has(section)) {
+          fileSections.set(section, {schema: Object.keys(row).sort().join('|'), ids: new Set()});
+        }
+        if (!baseCatalog) continue;
+
+        const k = idKey(row.id);
+        const fileIds = fileSections.get(section).ids;
+        const previous = recordsById.get(k);
+        if (!k || fileIds.has(k) || (previous && previous.section !== section)) {
+          throw new Error('Equipment ' + id + ': пустой или повторный ID в партии.');
+        }
+        fileIds.add(k);
+        recordsById.set(k, {section, row: previous ? {...previous.row, ...row} : row});
+      }
+
+      for (const [section, {schema, ids}] of fileSections) {
+        const previous = sections.get(section);
+        if (!previous) {
+          sections.set(section, {schemas: new Set([schema]), ids});
+          continue;
+        }
+        // Overlapping exports must describe the same section snapshot in different formats.
+        if (!baseCatalog || previous.schemas.has(schema) || ids.size !== previous.ids.size ||
+            [...ids].some(k => !previous.ids.has(k))) {
+          throw new Error('Equipment ' + id + ': неоднозначные файлы секции «' + section + '».');
+        }
+        previous.schemas.add(schema);
+      }
+    }
+
+    return baseCatalog ? [...recordsById.values()].map(entry => entry.row) : batches.flat();
+  }
+
   function merge(id,current,incoming,owners,options={}) {
     if (!IDS.includes(id)||!Array.isArray(incoming)||!incoming.length)
       throw new Error('Equipment: требуется непустая секционная партия '+id+'.');
@@ -102,6 +148,13 @@
     for (const row of upgraded) {
       if (labels.has(key(row[field]))) removed++;
       else previous.push(row);
+    }
+    if (id === 'mounted' || id === 'stationary') {
+      const existingById = new Map(upgraded.map(row => [idKey(row.id), row]));
+      for (let i = 0; i < incomingRows.length; i++) {
+        const row = incomingRows[i];
+        incomingRows[i] = {...existingById.get(idKey(row.id)), ...row};
+      }
     }
     const result=previous.concat(incomingRows);
     const idField={mounted:'id',stationary:'id',transport:'transport__id',zabbix:'zabbix__id'}[id];
@@ -134,7 +187,7 @@
       incomingRows:incomingRows.length
     };
   }
-  const api=Object.freeze({key,idKey,joinKey,ownership,upgrade,joinIndex,merge,UNKNOWN});
+  const api=Object.freeze({key,idKey,joinKey,ownership,upgrade,joinIndex,mergeFileRows,merge,UNKNOWN});
   globalThis.ReclassifierEquipmentPartitions=api;
   if(typeof module!=='undefined'&&module.exports)module.exports=api;
 })();
