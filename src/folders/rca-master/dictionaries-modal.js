@@ -1,4 +1,4 @@
-async function openRcaDictionaries({button, repository, getRows, load, read, apply, download}) {
+async function openRcaDictionaries({button, repository, getRows, load, read, apply, download, planLibrary, planStatus}) {
   button.disabled = true;
   const dialog = rcaElement('dialog', '', 'rca-dialog');
   const body = rcaElement('div');
@@ -34,9 +34,9 @@ async function openRcaDictionaries({button, repository, getRows, load, read, app
       const row = rcaElement('div', '', 'rca-passport-row');
       row.append(rcaElement('span', item.value + (item.status === 'archived' ? ' (архив)' : '')),
         rcaButton('Редактировать', () => edit(item)),
-        rcaButton(item.status === 'archived' ? 'Восстановить' : 'Архивировать', () => void run(async () => {
-          if (item.status === 'active' && !window.confirm('Архивировать значение? Оно останется в ранее заполненных карточках.')) return;
-          await update({...item, status: item.status === 'active' ? 'archived' : 'active'});
+        rcaButton('Удалить', () => void run(async () => {
+          if (!window.confirm('Удалить локальную подсказку? В ранее заполненных карточках текст сохранится.')) return;
+          await saveItems(items.filter(entry => entry.id !== item.id));
         })));
       body.append(row);
     }
@@ -46,6 +46,10 @@ async function openRcaDictionaries({button, repository, getRows, load, read, app
 
   async function update(item) {
     const next = [...items.filter(entry => entry.id !== item.id), {...item, updatedAt: new Date().toISOString()}];
+    await saveItems(next);
+  }
+
+  async function saveItems(next) {
     validateRcaDictionaries(next);
     await apply(repository, [], {expected: items, items: next});
     items = next;
@@ -58,13 +62,17 @@ async function openRcaDictionaries({button, repository, getRows, load, read, app
     rcaField(form, 'Значение', 'value', item?.value, {required: true});
     const save = rcaElement('button', 'Сохранить', 'primary');
     form.append(save, rcaButton('Отмена', render));
+    bindRcaSaveShortcut(form, save);
     body.replaceChildren(form);
     form.addEventListener('submit', event => {
       event.preventDefault();
-      void run(() => update({
-        id: item?.id ?? crypto.randomUUID(), category: item?.category ?? category,
-        status: item?.status ?? 'active', value: new FormData(form).get('value').trim()
-      }));
+      void run(async () => {
+        await update({
+          id: item?.id ?? crypto.randomUUID(), category: item?.category ?? category,
+          status: item?.status ?? 'active', value: new FormData(form).get('value').trim()
+        });
+        dialog.close();
+      });
     });
   }
 
@@ -122,7 +130,16 @@ async function openRcaDictionaries({button, repository, getRows, load, read, app
           (plan.problems.length - changes.length - rejected) + ', отклонено: ' + rejected + '. ' + RCA_ATTACHMENT_WARNING;
       })), rcaButton('Отмена импорта', () => preview.replaceChildren()));
   }));
-  dialog.append(rcaElement('h2', 'Справочники RCA Master'), categories, search, body,
+  const plans = rcaElement('details');
+  plans.append(rcaElement('summary','Типовые планы'),
+    rcaElement('p',planStatus || 'Обновите справочники из рабочей папки.'));
+  if (planLibrary) {
+    const list = rcaElement('ul');
+    for (const template of planLibrary.templates) list.append(rcaElement('li',template.id+' · '+template.title+
+      ' ('+template.steps.length+' шагов)'));
+    plans.append(rcaElement('p',planLibrary.fileName),list);
+  }
+  dialog.append(rcaElement('h2', 'Справочники RCA Master'), categories, search, body, plans,
     exportButton, importButton, file, notice, preview,
     rcaButton('Закрыть', () => { if (!busy) dialog.close(); }));
   dialog.addEventListener('cancel', event => { if (busy) event.preventDefault(); });

@@ -58,7 +58,7 @@
     log('Проверка справочника ' + config.title + ': ' + file.name, 'INFO', 'import_export');
 
     try {
-      if (!['drivers', 'customers', 'type_request', 'reclassification', 'initiators', 'exceptions', 'problem_grade'].includes(referenceId)) {
+      if (!['drivers', 'customers', 'type_request', 'reclassification', 'initiators', 'exceptions', 'problem_grade', 'it_problem_registry'].includes(referenceId)) {
         const instance = {
           id: referenceId,
           file,
@@ -85,7 +85,13 @@
       if (sourceFingerprint && await hashBytes(bytes) !== sourceFingerprint) {
         throw new Error('Справочник изменился во время чтения. Импортируйте файлы и обновите справочники заново.');
       }
-      const workbook = window.XLSX.read(bytes, { type: 'array', cellDates: true });
+      const workbook = window.XLSX.read(bytes, { type: 'array', cellDates: referenceId !== 'it_problem_registry' });
+      if (referenceId === 'it_problem_registry') {
+        const result = normalizeItProblemRegistry(workbook);
+        return {...result, id: referenceId, file, meta: {...result.meta, fileName: file.name,
+          sourceHash: sourceFingerprint ?? await hashBytes(bytes), loadedAt: new Date().toISOString(),
+          schemaVersion: config.schemaVersion}};
+      }
       const normalized = referenceId === 'drivers'
         ? normalizeDriversWorkbook(workbook)
         : referenceId === 'customers'

@@ -1,5 +1,5 @@
 const RCA_STATUSES = {
-  draft: 'Создана', investigation: 'Расследование', actions_planned: 'КД/ПД разработаны',
+  draft: 'Создана', investigation: 'Расследование', actions_planned: 'Мероприятия разработаны',
   execution: 'Исполнение', monitoring: 'Контроль результата', closed: 'Закрыта', archived: 'Архив'
 };
 
@@ -23,6 +23,18 @@ function checkRcaPrb(problem, rows) {
 
 function filterRcaRegistry(rows, query) {
   const term = query.trim().toLocaleLowerCase('ru');
-  return rows.filter(row => [rcaDisplayId(row), row.title, row.equipment]
-    .some(value => value.toLocaleLowerCase('ru').includes(term)));
+  return rows.filter(row => [rcaDisplayId(row), row.title, row.equipment, row.project, row.location,
+    row.official?.title, row.official?.project]
+    .some(value => value?.toLocaleLowerCase('ru').includes(term)));
+}
+
+function mergeRcaRegistry(local, official) {
+  const byNumber = new Map(official.map(row => [row.prbNumber, row]));
+  const started = new Set(local.map(row => row.prbNumber?.toUpperCase()));
+  return [
+    ...local.map(row => ({...row, official: byNumber.get(row.prbNumber?.toUpperCase())})),
+    ...official.filter(row => !started.has(row.prbNumber)).map(row => ({
+      id: row.prbNumber, prbNumber: row.prbNumber, title: row.title, official: row, unstarted: true
+    }))
+  ];
 }

@@ -77,6 +77,10 @@
       kind: 'reference', schemaVersion: '1.0.0', strategy: STRATEGY.REPLACE,
       allowEmpty: true
     }),
+    it_problem_registry: defineDataset('it_problem_registry', {
+      databaseTitle: 'Реестр ИТ-проблем', kind: 'reference', schemaVersion: '1.0.0',
+      strategy: STRATEGY.REPLACE, keyField: 'prbNumber'
+    }),
     problem_grade: defineDataset('problem_grade', {
       databaseTitle: 'ProblemGrade',
       kind: 'reference', schemaVersion: '1.0.0', strategy: STRATEGY.REPLACE

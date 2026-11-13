@@ -965,8 +965,6 @@
         fault,
         reason,
         problemId,
-        problemStatus: normalizeOptionalReferenceText(getCell(row, 'problemStatus')),
-        problemName: normalizeOptionalReferenceText(getCell(row, 'problemName')),
         classifierConfirmation: normalizeOptionalReferenceText(getCell(row, 'classifierConfirmation')),
         normalizationDecision: normalizeOptionalReferenceText(getCell(row, 'normalizationDecision')),
         primaryExclusion: normalizeOptionalReferenceText(getCell(row, 'primaryExclusion')),
@@ -981,8 +979,6 @@
       const signature = JSON.stringify([
         classifierKey,
         record.problemId,
-        record.problemStatus,
-        record.problemName,
         record.classifierConfirmation,
         record.normalizationDecision,
         record.primaryExclusion
@@ -1217,3 +1213,75 @@
     };
   }
 
+function normalizeItProblemRegistry(workbook) {
+  const match = globalThis.ReclassifierDatasetClassifier.classifyWorkbook(workbook);
+  if (match.id !== 'it_problem_registry') throw new Error('Не найдены обязательные заголовки реестра PRB.');
+  const xlsx = globalThis.XLSX;
+  const rows = xlsx.utils.sheet_to_json(workbook.Sheets[match.sheetName], {
+    header: 1, range: match.headerRow - 1, raw: true, defval: null, blankrows: true
+  });
+  const header = value => String(value ?? '').trim().replace(/\s+/g, ' ').toLowerCase();
+  const columns = new Map(rows[0].map((value, index) => [header(value), index]));
+  const definitions = {
+    prbNumber:'Номер', itsmStatus:'Статус', title:'Краткое описание', description:'Описание',
+    createdAt:'Дата создания', closedAt:'Дата закрытия', project:'Проект', assignee:'Ответственный',
+    initiator:'Инициатор', rootCause:'Корневая причина', permanentSolution:'Постоянное решение (меры по устранению)',
+    workaround:'Обходное решение', analysis:'Ход анализа и решения', closingNote:'Примечание к закрытию',
+    passport:'Паспорт проблемы', report:'Отчёт о проблеме'
+  };
+  const records = new Map();
+  const conflicts = new Set();
+  const warnings = [];
+  const date1904 = Boolean(workbook.Workbook?.WBProps?.date1904);
+  const isoDay = (year, month, day) => {
+    const value = [String(year).padStart(4,'0'), String(month).padStart(2,'0'), String(day).padStart(2,'0')].join('-');
+    const parsed = new Date(value + 'T00:00:00Z');
+    return Number.isFinite(+parsed) && parsed.toISOString().slice(0,10) === value ? value : null;
+  };
+  function date(value) {
+    if (value instanceof Date && Number.isFinite(+value)) return isoDay(value.getFullYear(), value.getMonth()+1, value.getDate());
+    if (typeof value === 'number') {
+      const parsed = xlsx.SSF.parse_date_code(value, {date1904});
+      return parsed && isoDay(parsed.y, parsed.m, parsed.d);
+    }
+    const text = String(value).trim();
+    const iso = /^(\d{4})-(\d{2})-(\d{2})(?:$|[ T])/.exec(text);
+    const local = /^(\d{1,2})\.(\d{1,2})\.(\d{4})(?:$| )/.exec(text);
+    return iso ? isoDay(...iso.slice(1)) : local ? isoDay(local[3], local[2], local[1]) : null;
+  }
+  let rowCount = 0;
+  for (const [index, row] of rows.slice(1).entries()) {
+    if (!row.some(value => value !== null && String(value).trim())) continue;
+    rowCount++;
+    const line = match.headerRow + index + 1;
+    const record = {};
+    for (const [key, label] of Object.entries(definitions)) {
+      const value = row[columns.get(header(label))];
+      if (value == null || !String(value).trim()) record[key] = null;
+      else if (key === 'createdAt' || key === 'closedAt') {
+        record[key] = date(value);
+        if (!record[key]) warnings.push('Строка ' + line + ': некорректная дата «' + label + '».');
+      } else record[key] = String(value).trim();
+    }
+    const number = record.prbNumber?.toUpperCase();
+    if (!/^PRB\d+$/.test(number ?? '') || !record.itsmStatus || !record.title) {
+      warnings.push('Строка ' + line + ': неверный PRB или пустой статус / название.');
+      if (/^PRB\d+$/.test(number ?? '')) conflicts.add(number);
+      continue;
+    }
+    record.prbNumber = number;
+    const previous = records.get(number);
+    if (previous) {
+      const same = JSON.stringify(previous) === JSON.stringify(record);
+      warnings.push('Строка ' + line + ': ' + (same ? 'совпадающий дубль ' : 'конфликт строк ') + number + '.');
+      if (!same) conflicts.add(number);
+    } else records.set(number, record);
+  }
+  for (const number of conflicts) records.delete(number);
+  return {
+    records: [...records.values()],
+    meta: {rowCount},
+    validation: {status: records.size ? warnings.length ? 'warning' : 'valid' : 'invalid',
+      errors: records.size ? [] : ['Нет валидных записей PRB.'], warnings}
+  };
+}

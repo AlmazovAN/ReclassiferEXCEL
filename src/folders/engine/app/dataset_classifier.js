@@ -32,18 +32,18 @@
       // from the complete workbook. Preserve the logical nonblank rowIndex
       // used by recognizerRows() even when physical spreadsheet rows are blank.
       let seen = 0;
-      const collect = (rows, firstColumn = 0) => {
-        for (const row of rows) {
+      const collect = (rows, firstColumn = 0, firstRow = 0) => {
+        for (const [offset, row] of rows.entries()) {
           if (seen >= 25) break;
-          const rowIndex = seen++;
           const normalized = (row || []).map(datasetClassifierNormalizeHeader);
           const set = new Set(normalized.filter(Boolean));
           if (!set.size) continue;
+          const rowIndex = seen++;
           const headerMap = new Map();
           normalized.forEach((header, index) => {
             if (header && !headerMap.has(header)) headerMap.set(header, firstColumn + index);
           });
-          result.push({sheetName,rowIndex,set,headerMap});
+          result.push({sheetName,rowIndex,physicalRow:firstRow + offset + 1,set,headerMap});
         }
       };
       if (sheet['!ref'] && typeof xlsx.utils.decode_range === 'function') {
@@ -54,13 +54,13 @@
             header: 1,
             raw: true,
             defval: null,
-            blankrows: false,
+            blankrows: true,
             range: {
               s: { r: first, c: bounds.s.c },
               e: { r: Math.min(bounds.e.r, first + batchRows - 1), c: bounds.e.c }
             }
           });
-          collect(rows,bounds.s.c);
+          collect(rows,bounds.s.c,first);
         }
       } else {
         // Fake/legacy sheets without !ref preserve existing behavior.
@@ -83,6 +83,9 @@
   }
 
   function classifyWorkbookByStructure(workbook,{partialItsm=false}={}) {
+    if (workbook.Sheets?.['Реестр'] && workbook.Sheets?.['Типовые планы']) {
+      return {id:'rca_plan_templates',group:'Справочники',label:'Типовые планы RCA'};
+    }
     const dkn=globalThis.ReclassifierDknRoadmap?.detectWorkbook(workbook);
     if(dkn)return {id:'dkn_roadmap',group:'Справочники',label:'Дорожная карта по надёжности',sheetName:dkn.sheetName,headerRow:dkn.headerRow,reason:'структура PRB, мероприятий, вех и план/факт дат'};
     const rows = datasetClassifierHeaderRows(workbook);
@@ -104,6 +107,10 @@
       headerMap: itsm.headerMap,
       reason: 'структура ITSM-выгрузки'
     };
+
+    const prb = findAll(['Номер', 'Статус', 'Краткое описание']);
+    if (prb) return {id:'it_problem_registry', group:'Справочники', label:'Реестр ИТ-проблем',
+      sheetName:prb.sheetName, headerRow:prb.physicalRow};
 
     const mobileBrigade = findAllAndAny(
       ['Тип задачи', 'Фактическая дата', 'Фактические трудозатраты'],

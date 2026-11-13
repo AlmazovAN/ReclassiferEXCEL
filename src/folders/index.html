@@ -20,7 +20,8 @@
     <div id="rca-menu" hidden>
       <button type="button" class="secondary" id="rca-back">← RCA Master</button>
       <button type="button" class="primary" id="rca-add" disabled>+ Добавить проблему</button>
-      <input type="search" id="rca-search" aria-label="Поиск по реестру расследований" placeholder="PRB, название, оборудование" disabled>
+      <input type="search" id="rca-search" aria-label="Поиск по реестру расследований" placeholder="PRB, название, проект, участок" disabled>
+      <select id="rca-itsm-filter" aria-label="Фильтр по статусу ITSM"><option value="">Все статусы ITSM</option></select>
       <h2 id="rca-register-title">Реестр расследований</h2>
       <ul id="rca-register" aria-labelledby="rca-register-title"></ul>
       <button type="button" class="secondary" id="rca-dictionaries" disabled>Справочники</button>
@@ -118,6 +119,9 @@
       <header class="page-heading">
         <h1 id="rca-master-title">RCA Master</h1>
         <p id="rca-save-status" role="status"></p>
+        <p id="rca-official-status" role="status">Справочник не подключён.</p>
+        <button type="button" class="secondary" id="rca-official-download" hidden>Экспорт снимка реестра JSON</button>
+        <details id="rca-official-warnings" hidden><summary>Диагностика реестра PRB</summary><ul></ul></details>
         <p id="rca-message" role="alert"></p>
       </header>
       <div id="rca-content"><p>Выберите или создайте проблему</p></div>

@@ -39,22 +39,27 @@ function createRcaRepository({handle, mode = 'none', files = []} = {}) {
     if (await read(path, name) !== text) throw new Error('Записанный файл RCA не прошёл проверку.');
   }
 
-  async function generations() {
+  async function namesAt(path) {
     const entries = [];
     if (mode === 'import') {
+      const prefix = path.join('/') + '/';
       for (const path of imported.keys()) {
-        if (path.startsWith('indexes/')) entries.push(path.slice('indexes/'.length));
+        if (path.startsWith(prefix)) entries.push(path.slice(prefix.length));
       }
     } else if (handle) {
       try {
-        for await (const entry of (await directory(['indexes'])).values()) {
+        for await (const entry of (await directory(path)).values()) {
           if (entry.kind === 'file') entries.push(entry.name);
         }
       } catch (error) {
         if (error.name !== 'NotFoundError') throw error;
       }
     }
-    return entries.filter(name => RCA_INDEX_NAME.test(name)).sort().reverse();
+    return entries;
+  }
+
+  async function generations() {
+    return (await namesAt(['indexes'])).filter(name => RCA_INDEX_NAME.test(name)).sort().reverse();
   }
 
   async function* readIndexes(names, issues) {
@@ -150,8 +155,8 @@ function createRcaRepository({handle, mode = 'none', files = []} = {}) {
         const file = revision + '-' + crypto.randomUUID() + '.json';
         const checksum = await hash(text);
         staged.push({id, file, text});
-        const {prbNumber, title, status, equipment, updatedAt} = snapshot.problem;
-        rows.set(id, {id, prbNumber, title, status, equipment, updatedAt, revision, file, hash: checksum});
+        const {prbNumber, title, status, equipment, location, project, updatedAt} = snapshot.problem;
+        rows.set(id, {id, prbNumber, title, status, equipment, location, project, updatedAt, revision, file, hash: checksum});
       }
       const nextDictionaries = validateRcaDictionaries(dictionary?.items ?? dictionaries);
       for (const {id, file, text} of staged) await writeNew(['problems', id], file, text);
@@ -172,6 +177,15 @@ function createRcaRepository({handle, mode = 'none', files = []} = {}) {
 
   return {
     getWriteCapability, recoverLastValid, loadProblem, saveBatch,
+    officialRegistry: createOfficialRegistryStore({
+      names: namesAt, read, write: writeNew, hash, writable: async () => (await getWriteCapability()).writable
+    }),
+    itsmAnalytics: createOfficialRegistryStore({
+      names:namesAt, read, write:writeNew, hash, writable:async () => (await getWriteCapability()).writable, analytics:true
+    }),
+    planLibrary: createOfficialRegistryStore({
+      names:namesAt,read,write:writeNew,hash,writable:async () => (await getWriteCapability()).writable,plans:true
+    }),
     async saveRevision(record, expectedRevision) {
       return (await saveBatch([{record, expectedRevision}]))[0];
     },

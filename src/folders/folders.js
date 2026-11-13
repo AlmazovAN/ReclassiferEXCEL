@@ -5,7 +5,7 @@
   const rca = typeof createRcaState === 'function'
     ? createRcaState(document.getElementById('rca-save-status')) : null;
   const rcaUi = rca && document.getElementById('rca-content')?.nodeType === 1
-    ? createRcaUi(rca, downloadBlob) : null;
+    ? createRcaUi(rca, downloadBlob, calculateItsmMetrics) : null;
   const openedAsFile = location.protocol === 'file:';
   const supportsFolderPicker = typeof window.showDirectoryPicker === 'function';
   const select = document.getElementById('select-folder');
@@ -37,12 +37,38 @@
   const referenceNames = {
     reclassification:'Реклассификация', drivers:'Драйверы оборудования',
     customers:'Заказчики', type_request:'Типовые запросы', initiators:'Инициаторы',
-    exceptions:'Исключения', problem_grade:'Связь с IT-проблемами',
+    exceptions:'Исключения', problem_grade:'Связь с IT-проблемами', it_problem_registry:'Реестр ИТ-проблем',
+    rca_plan_templates:'Типовые планы RCA',
     mounted:'Навесное оборудование', stationary:'Стационарное оборудование',
     transport:'Транспорт', zabbix:'Zabbix', failure_classifier:'Актуальный классификатор отказов'
   };
   let root;
   let importedFiles;
+  function calculateItsmMetrics(previous, onProgress) {
+    if (!root) return Promise.resolve({type:'analytics-missing'});
+    if (busy) return Promise.reject(new Error('Дождитесь завершения операции с рабочей папкой.'));
+    busy = true;
+    controls();
+    return new Promise((resolve, reject) => {
+      const source = JSON.parse(document.getElementById('folders-worker').textContent);
+      const url = URL.createObjectURL(new Blob([source],{type:'text/javascript'}));
+      let calculation;
+      try {
+        calculation = new Worker(url);
+        calculation.onmessage = ({data}) => {
+          if (data.type === 'progress') { onProgress(data.message); return; }
+          if (data.type === 'error') reject(new Error(data.message));
+          else resolve(data);
+        };
+        calculation.onerror = event => reject(new Error(event.message || 'Расчёт ITSM прерван.'));
+        calculation.postMessage({action:'rca-analytics',root:importedFiles ? null : root,
+          imported:Boolean(importedFiles),files:importedFiles,previousHash:previous?.sourceHash,previousRules:previous?.rules});
+      } catch (error) { calculation?.terminate(); reject(error); }
+      finally { URL.revokeObjectURL(url); }
+      calculation?.addEventListener('message', ({data}) => { if (data.type !== 'progress') calculation.terminate(); });
+      calculation?.addEventListener('error', () => calculation.terminate());
+    }).finally(() => { busy = false; controls(); });
+  }
   let worker;
   let referencesReady = false;
   const runReclassification = document.getElementById('run-reclassification');
@@ -206,6 +232,12 @@
   }
 
   function handleMessage({data}) {
+    if (data.type === 'official-registry') {
+      void rcaUi?.updatePlanLibrary(data.planLibrary, data.planDetails);
+      rcaUi?.setReferences(data.references);
+      void rcaUi?.updateOfficialRegistry(data.registry, data.details);
+      return;
+    }
     if (data.type === 'diagnostics') {
       capture('diagnostics',data.message);
       return;
@@ -385,6 +417,7 @@
     busy = false;
     journalOperation = null;
     if (data.type === 'done') {
+      if (data.action === 'exports' && !importedFiles) rcaUi?.markAnalyticsStale();
       reclassificationResult = data;
       downloadReclassification.hidden = false;
       const prepared = data.stats.readyRows ? ' Подготовлено записей ReClass: '+data.stats.readyRows+'.' : '';

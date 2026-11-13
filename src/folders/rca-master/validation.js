@@ -46,6 +46,16 @@ function validateRcaProblem(record) {
     if (!nodes.has(item.nodeId)) throw new Error('Доказательство ссылается на чужой узел RCA.');
   }
   for (const item of record.actions) {
+    if (item.plan !== undefined) {
+      const plan = item.plan;
+      if (plan?.schemaVersion !== 1 || !/^[a-f0-9]{64}$/.test(plan.sourceHash) ||
+          !plan.template?.id || !Array.isArray(plan.template.steps)) throw new Error('Некорректный экземпляр плана.');
+      const computed = scheduleRcaPlan(plan.start,plan.steps);
+      if (computed.end !== plan.end || computed.steps.some((step,index)=>
+        step.plannedStart !== plan.steps[index].plannedStart || step.plannedEnd !== plan.steps[index].plannedEnd)) {
+        throw new Error('Плановые даты не соответствуют зависимостям.');
+      }
+    }
     if (!Array.isArray(item.nodeIds) || item.nodeIds.some(id => !nodes.has(id))) {
       throw new Error('Мероприятие ссылается на чужой узел RCA.');
     }
@@ -84,7 +94,8 @@ function validateRcaIndex(index, generation) {
         !RCA_SNAPSHOT_NAME.test(row.file) || !row.file.startsWith(row.revision + '-') ||
         !/^[0-9a-f]{64}$/.test(row.hash) ||
         !(row.prbNumber === null || typeof row.prbNumber === 'string') ||
-        !['title', 'status', 'equipment', 'updatedAt'].every(key => typeof row[key] === 'string')) {
+        !['title', 'status', 'equipment', 'updatedAt'].every(key => typeof row[key] === 'string') ||
+        !['location', 'project'].every(key => row[key] === undefined || typeof row[key] === 'string')) {
       throw new Error('Некорректная запись индекса RCA.');
     }
     ids.add(row.id);

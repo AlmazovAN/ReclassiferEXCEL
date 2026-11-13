@@ -42,28 +42,40 @@ const RCA_LINKED_FLAGS = {
 };
 
 function toggleRcaLinkedFlag(record, key, nodeId) {
+  if (key === 'actions') return toggleRcaActionFlag(record, nodeId, 'flagM');
   const {flag, source} = RCA_LINKED_FLAGS[key];
   const node = record.rcaNodes.find(item => item.id === nodeId);
   const items = record[key];
   const auto = items.find(item => item.source === source && item.originNodeId === nodeId);
   if (node[flag] && auto) {
-    const populated = key === 'evidence'
-      ? auto.method || auto.methodDetail || auto.dueDate || auto.expected || auto.actual ||
-        auto.materials || auto.verdict !== 'unknown'
-      : auto.text || auto.assignee || auto.dueDate || auto.result ||
-        auto.nodeIds.length !== 1 || auto.sector !== 'technical';
+    const populated = auto.method || auto.methodDetail || auto.task || auto.dueDate || auto.expected || auto.actual ||
+      auto.materials || auto.verdict !== 'unknown';
     if (auto.revision !== 1 || auto.status !== 'draft' || populated) {
       throw new Error('Карточка содержит данные. Сначала явно удалите её или отвяжите от причины.');
     }
     record[key] = items.filter(item => item.id !== auto.id);
   } else if (!node[flag] && !auto) {
-    const fields = key === 'evidence'
-      ? {nodeId, leader: record.problem.leader, verdict: 'unknown'}
-      : {nodeIds: [nodeId], sector: 'technical', kind: 'corrective'};
+    const fields = {nodeId, leader: record.problem.leader, verdict: 'unknown'};
     items.push(newRcaLinkedItem(record, {...fields, originNodeId: nodeId, source}));
   }
   node[flag] = !node[flag];
   node.updatedAt = new Date().toISOString();
+}
+
+function toggleRcaActionFlag(record, nodeId, flag) {
+  const node = record.rcaNodes.find(item => item.id === nodeId);
+  node[flag] = !node[flag];
+  node.updatedAt = new Date().toISOString();
+  if (node[flag] && !record.actions.some(item => item.nodeIds.includes(nodeId) && item.status !== 'cancelled')) {
+    record.actions.push(newRcaLinkedItem(record, {
+      nodeIds:[nodeId], sector:'technical', kind:'preventive', originNodeId:nodeId, source:'auto_flag_m'
+    }));
+  }
+  if (!node.flagK && !node.flagM) {
+    record.actions = record.actions.filter(item => item.source !== 'auto_flag_m' || item.originNodeId !== nodeId ||
+      item.status !== 'draft' || item.revision !== 1 || item.text || item.result || item.assignee || item.dueDate ||
+      item.zno || item.plan || item.sector !== 'technical' || item.nodeIds.length !== 1);
+  }
 }
 
 function newRcaLinkedItem(record, values) {
@@ -74,11 +86,22 @@ function newRcaLinkedItem(record, values) {
 
 function updateRcaLinkedItem(record, key, previous, values) {
   const item = record[key].find(entry => entry.id === previous?.id);
+  if (key === 'actions') validateRcaActionEdit({...item, ...values});
+  const nodeId = values.nodeId ?? item?.nodeId;
+  const before = key === 'evidence' ? rcaEvidenceState(record, nodeId) : null;
+  const edited = {...item, ...values};
+  if (key === 'evidence' && ['confirmed','refuted'].includes(edited.verdict) &&
+      (!edited.leader?.trim() || !edited.actual?.trim())) {
+    throw new Error('Для вердикта укажите проверяющего и результат проверки.');
+  }
   if (!item) {
-    record[key].push(newRcaLinkedItem(record, values));
+    const created = newRcaLinkedItem(record, values);
+    record[key].push(created);
+    if (key === 'evidence') recordRcaEvidenceEvent(record, nodeId, created.id, 'evidence-created', before);
     return;
   }
   Object.assign(item, values, {revision: (item.revision ?? 1) + 1, updatedAt: new Date().toISOString()});
+  if (key === 'evidence') recordRcaEvidenceEvent(record, nodeId, item.id, 'evidence-edited', before);
   if (item.originNodeId && !RCA_LINKED_FLAGS[key].links(item).includes(item.originNodeId)) {
     clearRcaLinkedFlag(record, key, item);
     delete item.originNodeId;
@@ -100,7 +123,9 @@ async function deleteRcaLinkedItem(commit, key, item) {
   if (!window.confirm('Удалить карточку и её связи?')) return;
   try {
     await commit(next => {
+      const before = key === 'evidence' ? rcaEvidenceState(next, item.nodeId) : null;
       next[key] = next[key].filter(entry => entry.id !== item.id);
+      if (key === 'evidence') recordRcaEvidenceEvent(next, item.nodeId, item.id, 'evidence-deleted', before);
       clearRcaLinkedFlag(next, key, item);
     });
   } catch (error) { window.alert(error.message); }

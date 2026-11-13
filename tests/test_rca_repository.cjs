@@ -3,6 +3,70 @@ const fs = require('node:fs');
 const path = require('node:path');
 const test = require('node:test');
 const vm = require('node:vm');
+const {officialPrb, problemGrade, itsm, plans, legacy} = require('./fixtures/rca-pr13.cjs');
+
+test('PR28 reopens a complete investigation transferred between workspaces', async () => {
+  const source = createRcaRepository({handle:workspace().handle,mode:'write'});
+  const targetHandle = workspace().handle;
+  const target = createRcaRepository({handle:targetHandle,mode:'write'});
+  const official = {prbNumber:'PRB1',itsmStatus:'Закрыта ITSM',title:'Официальное название'};
+  assert.equal(context.mergeRcaRegistry([], [official])[0].unstarted,true);
+  const record = createRcaProblem({title:'Локальное расследование',prbNumber:'PRB1'});
+  record.problem.status = 'investigation';
+  record.officialSnapshot = official;
+  record.symptoms.push({id:'s',title:'Нет связи'});
+  const node = addRcaWhy(record,'s',null,'Причина');
+  toggleRcaLinkedFlag(record,'evidence',node.id);
+  updateRcaLinkedItem(record,'evidence',record.evidence[0],{
+    leader:'Инженер',actual:'Осмотр и фото',verdict:'confirmed'
+  });
+  context.toggleRcaActionFlag(record,node.id,'flagK');
+  toggleRcaLinkedFlag(record,'actions',node.id);
+  assert.equal(record.actions.length,1);
+  const action = record.actions[0];
+  updateRcaLinkedItem(record,'actions',action,{kind:'corrective',text:'Устранить причину',status:'draft'});
+  assert.throws(()=>updateRcaLinkedItem(record,'actions',action,{status:'planned'}),/ЗНО/);
+  updateRcaLinkedItem(record,'actions',action,{status:'planned',zno:'ЗНО-TEST'});
+  action.plan = context.createRcaPlan({id:'ТП №01',title:'Осмотр',steps:[
+    {id:'step',title:'Осмотр',durationDays:0}
+  ]},{sourceHash:'a'.repeat(64)},'2026-03-01');
+  await source.saveRevision(record,0);
+  const metric = context.getRcaMetric({days:[
+    {prb:'PRB1',site:'',day:'2026-03-01',incCount:1,mbLaborHours:0}
+  ]},'PRB1','','2026-03-01','2026-03-31');
+  assert.equal(metric.incCount,1);
+  const blob = await exportRcaArchive((await source.listIndex()).records,[],
+    async id=>(await source.loadProblem(id)).record);
+  const archive = readRcaArchive(await blob.text());
+  await target.saveBatch((await planRcaArchive(archive,[],[],()=>null)).problems);
+  const {record:reopened} = await createRcaRepository({handle:targetHandle,mode:'write'}).loadProblem(record.problem.id);
+  assert.equal(reopened.problem.status,'investigation');
+  assert.equal(reopened.officialSnapshot.itsmStatus,official.itsmStatus);
+  assert.equal(reopened.actions[0].plan.steps[0].plannedEnd,'2026-03-01');
+  const report = JSON.stringify(context.buildRcaReport(reopened));
+  for (const value of ['Закрыта ITSM','Расследование','Осмотр и фото','ЗНО-TEST','План · ']) assert.ok(report.includes(value));
+});
+
+test('ITSM index survives interrupted publication and skips unchanged generations', async () => {
+  const {handle,files,options} = workspace();
+  const repo = createRcaRepository({handle,mode:'write'});
+  const first = {schemaVersion:1,rules:'itsm-daily-v1',sourceHash:'a'.repeat(64),source:'ITSM/export_ITSM.xlsx',
+    calculatedAt:new Date().toISOString(),diagnostics:{counted:1},days:[
+      {prb:'PRB1',site:'макет',day:'2026-03-31',incCount:1,mbLaborHours:0}
+    ]};
+  await repo.itsmAnalytics.publish(first);
+  await repo.itsmAnalytics.publish(first);
+  assert.equal(files.size,1);
+  options.fail = '/analytics/';
+  const next = {...first,sourceHash:'b'.repeat(64)};
+  await assert.rejects(repo.itsmAnalytics.publish(next), /Interrupted write/);
+  const reopened = createRcaRepository({handle,mode:'write'});
+  assert.equal((await reopened.itsmAnalytics.readLatest()).sourceHash,first.sourceHash);
+  options.fail = '';
+  await reopened.itsmAnalytics.publish(next);
+  assert.equal((await reopened.itsmAnalytics.readLatest()).sourceHash,next.sourceHash);
+  assert.ok([...files.keys()].every(key=>key.startsWith('RCA/analytics/itsm/')));
+});
 
 const html = fs.readFileSync(path.join(__dirname, '../dist/ReclassifierEXCEL.html'), 'utf8');
 const script = html.match(/<script>([\s\S]*?)<\/script>/)[1];
@@ -187,7 +251,8 @@ test('evidence flags preserve edited checks and report conflicting verdicts afte
   updateRcaLinkedItem(record, 'evidence', auto, {verdict: 'confirmed', actual: 'Протокол'});
   assert.throws(() => toggleRcaLinkedFlag(record, 'evidence', node.id), /содержит данные/);
   assert.throws(() => removeRcaTreeItem(record, node.id, false), /доказательства/);
-  updateRcaLinkedItem(record, 'evidence', null, {nodeId: node.id, verdict: 'refuted'});
+  assert.throws(() => updateRcaLinkedItem(record, 'evidence', null, {nodeId: node.id, verdict: 'refuted'}), /проверяющего/);
+  updateRcaLinkedItem(record, 'evidence', null, {nodeId: node.id, verdict: 'refuted', leader:'Инженер', actual:'Осмотр'});
   await repo.saveRevision(record, 0);
   const {record: restored} = await createRcaRepository({handle, mode: 'write'}).loadProblem(record.problem.id);
   assert.match(rcaEvidenceVerdict(restored, node.id), /Противоречие/);
@@ -209,19 +274,42 @@ test('actions track real coverage, retain identity after sector changes, and all
   toggleRcaLinkedFlag(record, 'actions', first.id);
   const item = record.actions[0];
   const id = item.id;
-  updateRcaLinkedItem(record, 'actions', item, {
+  assert.throws(() => updateRcaLinkedItem(record, 'actions', item, {kind:'corrective', status:'planned'}), /ЗНО/);
+  assert.throws(() => updateRcaLinkedItem(record, 'actions', item, {
     nodeIds: [first.id, second.id], sector: 'quality', text: 'Проверить настройку', status: 'closed'
-  });
-  assert.throws(() => validateRcaProblem(record), /результат/);
-  updateRcaLinkedItem(record, 'actions', item, {result: 'Настройка проверена'});
+  }), /отчёт/);
+  updateRcaLinkedItem(record, 'actions', item, {nodeIds:[first.id, second.id], sector:'quality',
+    text:'Проверить настройку', status:'closed', result:'Настройка проверена'});
   assert.equal(rcaActionCoverage(record, second.id), 'Выполнено');
-  assert.throws(() => toggleRcaLinkedFlag(record, 'actions', first.id), /содержит данные/);
+  toggleRcaLinkedFlag(record, 'actions', first.id);
+  assert.equal(record.actions[0].id, id);
   updateRcaLinkedItem(record, 'actions', item, {nodeIds: [second.id]});
   assert.equal(first.flagM, false);
   assert.equal(record.actions[0].id, id);
   assert.equal(record.actions[0].sector, 'quality');
   assert.equal(rcaActionCoverage(record, first.id), 'Нет действий');
   validateRcaProblem(record);
+});
+
+test('root and action flags share one preventive draft, and passport suggestions remain independent', () => {
+  const record = createRcaProblem({title:'Проверка', prbNumber:'PRB1'});
+  record.symptoms.push({id:'s', title:'Симптом'});
+  const node = addRcaWhy(record, 's', null, 'Причина');
+  context.toggleRcaActionFlag(record, node.id, 'flagK');
+  toggleRcaLinkedFlag(record, 'actions', node.id);
+  assert.equal(record.actions.length, 1);
+  assert.equal(record.actions[0].kind, 'preventive');
+  context.toggleRcaActionFlag(record, node.id, 'flagK');
+  assert.equal(record.actions.length, 1);
+  assert.equal(node.flagM, true);
+  const suggestions = context.rcaPassportReferences([], {records:[{project:'Проект'}]},
+    {equipment:['Макет'], locations:['Участок'], classifications:[
+      {problemId:'PRB1', equipment:'Макет', element:'Модуль', fault:'Отказ', reason:'Питание'}
+    ]}, 'PRB1');
+  assert.equal(suggestions.suggestions.project[0], 'Проект');
+  assert.equal(suggestions.paths[0].join('/'), 'Макет/Модуль/Отказ/Питание');
+  assert.equal(record.classifications.length, 0);
+  assert.equal(record.problem.equipment, '');
 });
 
 test('archive round-trip preserves dictionaries and treats a repeated import as identical', async () => {
@@ -298,4 +386,83 @@ test('investigation survives reopening and moves between isolated workspaces onl
   assert.equal(restored.evidence[0].nodeId, node.id);
   assert.equal(restored.actions[0].nodeIds[0], node.id);
   assert.equal(restored.problem.prbNumber, null);
+});
+
+test('PR13 opens a preexisting v1 snapshot without rewriting or dropping legacy fields', async () => {
+  const {handle, files} = workspace();
+  const payload = JSON.stringify(legacy, null, 2);
+  const snapshot = '3-00000000-0000-4000-8000-000000000002.json';
+  const {id, title, status, equipment, updatedAt, revision, prbNumber} = legacy.problem;
+  const folder = await handle.getDirectoryHandle('RCA', {create: true});
+  await folder.getDirectoryHandle('indexes', {create: true});
+  await (await folder.getDirectoryHandle('problems', {create: true})).getDirectoryHandle(id, {create: true});
+  const snapshotPath = 'RCA/problems/' + id + '/' + snapshot;
+  files.set(snapshotPath, payload);
+  files.set('RCA/indexes/index-000000000001.json', JSON.stringify({
+    recordType: 'rca-index', schemaVersion: 1, generation: 1,
+    records: [{id, title, status, equipment, updatedAt, revision, prbNumber, file: snapshot,
+      hash: require('node:crypto').createHash('sha256').update(payload).digest('hex')}]
+  }));
+  const before = [...files];
+  const repo = createRcaRepository({handle, mode: 'write'});
+  const {record, issues} = await repo.loadProblem(id);
+  assert.equal(issues.length, 0);
+  assert.deepEqual(JSON.parse(JSON.stringify(record)), legacy);
+  assert.deepEqual([...files], before);
+  const archive = readRcaArchive(await (await exportRcaArchive((await repo.listIndex()).records, [],
+    async problemId => (await repo.loadProblem(problemId)).record)).text());
+  assert.deepEqual(JSON.parse(JSON.stringify(archive.problems[0])), legacy);
+});
+
+test('PR13 fixture inventory covers ambiguity, duplicate INC, missing dates and zero-day steps', () => {
+  assert.equal(officialPrb.length, 2);
+  assert.equal(problemGrade[0].reason, problemGrade[1].reason);
+  assert.notEqual(problemGrade[0].problemId, problemGrade[1].problemId);
+  assert.deepEqual(itsm[0], itsm[1]);
+  assert.equal(itsm[2]['Номер'], itsm[0]['Номер']);
+  assert.equal(itsm[0]['рез6'], 0);
+  assert.equal(itsm[3]['Дата выполнения обращения'], '');
+  assert.equal(plans.length, 9);
+  assert.equal(plans.flatMap(plan => plan.steps).length, 74);
+  assert.ok(plans.every(plan => plan.steps[0]['Ориент. дней'] === 0));
+});
+
+test('official registry versions recover independently of local investigation JSON', async () => {
+  const {handle, files, options} = workspace();
+  const repo = createRcaRepository({handle, mode:'write'});
+  const local = await repo.saveRevision(createRcaProblem({title:'Локальное', prbNumber:'PRB1'}), 0);
+  const first = {schemaVersion:1, sourceHash:'a'.repeat(64), fileName:'synthetic.xlsx',
+    loadedAt:new Date().toISOString(), rowCount:1, warnings:[],
+    records:[{prbNumber:'PRB1', itsmStatus:'Создана', title:'Официальное'}]};
+  assert.equal(await repo.officialRegistry.publish(first), true);
+  await repo.officialRegistry.publish(first);
+  assert.equal([...files.keys()].filter(key => key.includes('/references/')).length, 1);
+  const second = {...first, sourceHash:'b'.repeat(64), records:[{...first.records[0], itsmStatus:'Закрыта'}]};
+  options.fail = '/references/';
+  await assert.rejects(repo.officialRegistry.publish(second), /Interrupted write/);
+  const reopened = createRcaRepository({handle, mode:'write'});
+  assert.equal((await reopened.officialRegistry.readLatest()).records[0].itsmStatus, 'Создана');
+  options.fail = '';
+  await reopened.officialRegistry.publish(second);
+  assert.equal((await reopened.officialRegistry.readLatest()).records[0].itsmStatus, 'Закрыта');
+  assert.equal((await reopened.loadProblem(local.problem.id)).record.problem.title, 'Локальное');
+  assert.equal((await reopened.listIndex()).records[0].revision, 1);
+  const imported = createRcaRepository({mode:'import',
+    files:[...files].map(([path, text]) => ({path:'synthetic/' + path, file:new Blob([text])}))});
+  assert.equal((await imported.officialRegistry.readLatest()).sourceHash, second.sourceHash);
+  assert.equal(await imported.officialRegistry.publish(first), false);
+});
+
+test('merged registry keeps local UUIDs and adds only PRB without an investigation', () => {
+  const local = createRcaProblem({title:'Локальное имя', prbNumber:'PRB1'}).problem;
+  const orphan = createRcaProblem({title:'Прежнее расследование', prbNumber:'PRB3'}).problem;
+  const official = [{prbNumber:'PRB1', title:'Официальное имя', project:'Связь'},
+    {prbNumber:'PRB2', title:'Новое', project:'Связь'}];
+  const rows = context.mergeRcaRegistry([local, orphan], official);
+  assert.equal(rows.length, 3);
+  assert.equal(rows[0].id, local.id);
+  assert.equal(rows[0].title, 'Локальное имя');
+  assert.equal(rows[1].official, undefined);
+  assert.equal(rows[2].unstarted, true);
+  assert.equal(filterRcaRegistry(rows, 'СВЯЗЬ').length, 2);
 });

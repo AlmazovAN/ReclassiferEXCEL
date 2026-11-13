@@ -20,12 +20,23 @@ function rcaActionCoverage(record, nodeId) {
   return items.length ? 'Пустой черновик' : 'Нет действий';
 }
 
-function renderRcaActions(record, commit, navigate) {
+function validateRcaActionEdit(item) {
+  if (item.kind === 'corrective' && ['planned','in_progress','closed'].includes(item.status) &&
+      (typeof item.zno !== 'string' || !item.zno.trim())) {
+    throw new Error('Укажите номер ЗНО для корректирующего мероприятия.');
+  }
+  if (item.status === 'closed' && (!item.text?.trim() || !item.result?.trim())) {
+    throw new Error('Укажите название мероприятия и отчёт о выполнении.');
+  }
+}
+
+function renderRcaActions(record, commit, navigate, library) {
   const panel = rcaElement('div', '', 'rca-passport');
   const coverage = rcaElement('section', '', 'card');
-  coverage.append(rcaElement('h2', 'Покрытие причин'));
-  const tracked = record.rcaNodes.filter(node => node.flagK || node.flagM);
-  if (!tracked.length) coverage.append(rcaElement('p', 'Отметьте причины кнопками «К» или «М» в дереве RCA.'));
+  coverage.append(rcaElement('h2', 'Причины, требующие мероприятий'));
+  const tracked = record.rcaNodes.filter(node => (node.flagK || node.flagM) &&
+    !record.actions.some(item => item.nodeIds.includes(node.id) && item.status !== 'cancelled' && item.text?.trim()));
+  if (!tracked.length) coverage.append(rcaElement('p', 'Все отмеченные причины имеют сформулированные мероприятия.'));
   for (const node of tracked) {
     const row = rcaElement('div', '', 'rca-passport-row');
     row.append(rcaButton(node.title, () => navigate(node.id)), rcaElement('span', rcaActionCoverage(record, node.id)));
@@ -39,12 +50,13 @@ function renderRcaActions(record, commit, navigate) {
         multiple: true, choices: Object.fromEntries(record.rcaNodes.map(node => [node.id, node.title]))
       }],
       ['Сектор', 'sector', sector, {choices: RCA_SECTORS}],
-      ['Содержание', 'text', item?.text, {long: true}],
-      ['Вид', 'kind', item?.kind ?? 'corrective', {choices: {corrective: 'Корректирующее', preventive: 'Предупредительное'}}],
+      ['Название мероприятия', 'text', item?.text, {long: true}],
+      ['Вид', 'kind', item?.kind ?? 'preventive', {choices: {corrective: 'Корректирующее', preventive: 'Предупредительное'}}],
+      ['Номер ЗНО', 'zno', item?.zno, {hint:'Для корректирующего мероприятия при планировании и выполнении'}],
       ['Ответственный', 'assignee', item?.assignee],
       ['Срок', 'dueDate', item?.dueDate, {type: 'date'}],
       ['Статус', 'status', item?.status ?? 'draft', {choices: RCA_ACTION_STATUSES}],
-      ['Факт выполнения / результат', 'result', item?.result, {long: true}]
+      ['Отчёт о выполнении', 'result', item?.result, {long: true}]
     ], values => commit(next => updateRcaLinkedItem(next, 'actions', item, values)));
   }
 
@@ -61,6 +73,7 @@ function renderRcaActions(record, commit, navigate) {
       }
       row.append(rcaButton('Редактировать', () => edit(sector, item)),
         rcaButton('Удалить', () => void deleteRcaLinkedItem(commit, 'actions', item)));
+      row.append(rcaPlanControls(item,library,commit));
       section.append(row);
     }
     section.append(rcaButton('+ Мероприятие', () => edit(sector)));

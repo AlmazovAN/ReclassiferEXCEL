@@ -30,6 +30,7 @@ function rcaSameData(left, right) {
     const copy = structuredClone(record);
     delete copy.problem.revision;
     delete copy.problem.updatedAt;
+    delete copy.officialSnapshot;
     return JSON.stringify(copy, ordered);
   }
   return encode(left) === encode(right);

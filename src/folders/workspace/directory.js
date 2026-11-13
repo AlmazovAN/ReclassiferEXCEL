@@ -5,7 +5,7 @@ const folderDirectory = (() => {
   const MAX_FILES = 500;
   // Saved Combined copies share Stationary headers. Exclude known outputs
   // and auxiliary workbooks before classification and fingerprinting.
-  const NON_INPUT_CATALOG = /^(?:equipment[_\s-]*combined|catalogpspataskeffortmapper|реестр\s+ит[\s–—-]*проблем)(?=[._\s(-]|$)/i;
+  const NON_INPUT_CATALOG = /^(?:equipment[_\s-]*combined|catalogpspataskeffortmapper)(?=[._\s(-]|$)/i;
   const RETIRED_TRANSPORT_EXPORT = /^(?:CatalogTransport.*|transport[ _-]*)start[ _-]*points/i;
 
   function includeExcel(name, folder) {

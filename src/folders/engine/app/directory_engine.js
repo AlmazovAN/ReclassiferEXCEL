@@ -29,7 +29,9 @@
     ['failure_classifier', 'Классификатор отказов'],
     ['dkn_roadmap', 'Дорожная карта ДКН']
   ]);
-  const SOURCE_IDS = new Set([...ITSM, ...MB, ...OPTIONAL].map(item => item[0]));
+  const PRB_REFERENCE = ['it_problem_registry', 'Реестр ИТ-проблем'];
+  const PLAN_REFERENCE = ['rca_plan_templates', 'Типовые планы RCA'];
+  const SOURCE_IDS = new Set([...ITSM, ...MB, ...OPTIONAL, PRB_REFERENCE, PLAN_REFERENCE].map(item => item[0]));
   const EQUIPMENT_IDS = Object.freeze(['mounted', 'stationary', 'transport', 'zabbix']);
   const REQUIRED_IDS = Object.freeze([...ITSM, ...MB].map(item => item[0]));
   const {maxFiles:MAX_FILES, includeExcel, enumerate, relativeFiles,
@@ -37,7 +39,7 @@
   let scanGeneration = 0;
 
   function manifest() {
-    return Object.freeze({itsm: ITSM, mobileBrigade: MB, optional: OPTIONAL, requiredIds: REQUIRED_IDS});
+    return Object.freeze({itsm: ITSM, mobileBrigade: MB, optional: [...OPTIONAL, PRB_REFERENCE, PLAN_REFERENCE], requiredIds: REQUIRED_IDS});
   }
 
 
@@ -106,7 +108,7 @@
   }
 
   const prepare = createFolderReferenceReader({
-    referenceIds:ITSM.map(([id])=>id), equipmentIds:EQUIPMENT_IDS,
+    referenceIds:[...ITSM, PRB_REFERENCE].map(([id])=>id), equipmentIds:EQUIPMENT_IDS,
     readWorkbook:readFolderWorkbook,
     processReferenceFile, sha256, normalizeEquipmentWorkbook, equipmentConfig,
     identifyEquipmentCatalog:typeof identifyEquipmentCatalog === 'function' ? identifyEquipmentCatalog : null,
@@ -220,6 +222,7 @@
     }
 
     const referenceTypes = [...(preparedReferences ? [] : ITSM), ...(includeCombined ? MB.filter(item => item[0] !== 'combined') : []),
+        ...(preparedReferences ? [] : [PRB_REFERENCE, PLAN_REFERENCE]),
         ...(exportOnly ? [] : OPTIONAL)];
     const stepCount = entries.length + referenceTypes.length;
 
@@ -286,7 +289,14 @@
             for (const entry of items) {
               const metadata = files.get(entry.path);
               if (metadata.diagnostic) throw new Error(metadata.diagnostic);
-              const source = await prepare(entry, id, metadata.sha256);
+              let source;
+              if (id === PLAN_REFERENCE[0]) {
+                const bytes = await entry.file.arrayBuffer();
+                if (await sha256(bytes) !== metadata.sha256) throw new Error('Книга типовых планов изменилась.');
+                source = {records:readRcaPlanTemplates(XLSX.read(bytes,{type:'array'})),
+                  validation:{status:'valid',warnings:[]},
+                  meta:{schemaVersion:1,sourceHash:metadata.sha256,fileName:entry.file.name,loadedAt:new Date().toISOString()}};
+              } else source = await prepare(entry, id, metadata.sha256);
               if (source.validation?.status === 'invalid') {
                 throw new Error(source.validation.errors.join(' ') || 'Справочник не прошёл проверку.');
               }
@@ -310,7 +320,7 @@
               statuses.set(id, asStatus('invalid',items,['Нормализованный справочник пуст.']));
             } else {
               const compact=globalThis.ReclassifierLocalExportLimits?.compactReference;
-              candidates.set(id, exportOnly&&compact
+              candidates.set(id, exportOnly&&compact && id !== PRB_REFERENCE[0]
                 ? {...instance,records:compact(id,instance.records)}
                 : instance);
               const status = asStatus(details.length ? 'warning' : 'ready',items,details,instance.records.length);
@@ -425,6 +435,19 @@
         workStatuses.itsm.eligible && workStatuses.mobileBrigade.eligible;
       return {
         statuses, work, workStatuses, errors,
+        planLibrary: candidates.has(PLAN_REFERENCE[0]) ? {
+          ...candidates.get(PLAN_REFERENCE[0]).meta, templates:candidates.get(PLAN_REFERENCE[0]).records
+        } : null,
+        rcaReferences: {
+          equipment: [...new Set((candidates.get('drivers')?.records ?? []).map(row => row.name).filter(Boolean))],
+          locations: [...new Set((candidates.get('customers')?.records ?? []).map(row => row.mine).filter(Boolean))],
+          classifications: (candidates.get('problem_grade')?.records ?? []).map(
+            ({problemId, equipment, element, fault, reason}) => ({problemId, equipment, element, fault, reason}))
+        },
+        officialRegistry: candidates.has(PRB_REFERENCE[0]) ? {
+          ...candidates.get(PRB_REFERENCE[0]).meta, records: candidates.get(PRB_REFERENCE[0]).records,
+          warnings: candidates.get(PRB_REFERENCE[0]).validation.warnings
+        } : null,
         catalogIssues:catalogIssues.map(issue => issue.message),
         workIssues:{
           itsm:workIssues.itsm.map(issue => issue.message),

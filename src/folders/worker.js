@@ -39,6 +39,9 @@ async function refreshReferences(root, progress, publish) {
   preparedRoot = null;
   const scan = await engine.scan(await engine.enumerate(root,'catalogs'),progress,{exportOnly:true,showInactive:true});
   publish([...scan.statuses].map(([id,item])=>({id,status:item.status,ready:item.files?.length===1,details:item.details,indicators:item.indicators,date:item.date,note:item.note,badgeState:item.badgeState})));
+  self.postMessage({type:'official-registry', registry:scan.officialRegistry ?? null,
+    details:scan.statuses.get('it_problem_registry')?.details ?? [], references:scan.rcaReferences,
+    planLibrary:scan.planLibrary ?? null, planDetails:scan.statuses.get('rca_plan_templates')?.details ?? []});
   if (!scan.exportReferences) {
     engine.release(scan);
     throw new Error('Комплект справочников не готов. Проверьте плашки справочников.');
@@ -171,6 +174,32 @@ self.onmessage = async ({data}) => {
     self.postMessage({type:'progress',action,message,percent,book});
   };
   try {
+    if (action === 'rca-analytics') {
+      const workspace = imported ? createImportedDirectory(files,{pendingFile:PENDING,observeFile:file=>file}) : root;
+      const target = (await writer.exportTargets(workspace,['itsm'])).itsm;
+      if (!target.handle) {
+        self.postMessage({type:'analytics-missing'});
+        return;
+      }
+      const started = performance.now();
+      progress('Проверка версии export_ITSM.xlsx…');
+      const file = await target.handle.getFile();
+      const sourceHash = await ReclassifierLocalExportLimits.hashBlob(file);
+      if (data.previousHash === sourceHash && data.previousRules === RCA_ITSM_RULES) {
+        self.postMessage({type:'analytics-unchanged'});
+        return;
+      }
+      progress('Чтение строк ITSM…');
+      let peakHeap = null;
+      const result = await aggregateRcaItsm(readRcaItsmRows(file), ReclassifierItsmRules.mineKey, progress, () => {
+        const bytes = performance.memory?.usedJSHeapSize;
+        if (Number.isFinite(bytes)) peakHeap = Math.max(peakHeap ?? 0,bytes);
+      });
+      const index = validateRcaItsmIndex({schemaVersion:1,rules:RCA_ITSM_RULES,sourceHash,source:target.path,
+        calculatedAt:new Date().toISOString(),elapsedMs:Math.round(performance.now()-started),peakHeap,...result});
+      self.postMessage({type:'analytics-ready',index});
+      return;
+    }
     if (action === 'save') {
       stage = 'Проверка и запись выбранной книги';
       const book = importedBooks?.[kind];

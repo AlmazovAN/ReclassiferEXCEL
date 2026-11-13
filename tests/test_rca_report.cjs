@@ -51,7 +51,7 @@ test('RCA prints only the selected problem as text and leaves its data intact', 
   context.printRcaReport(selected);
   for (const value of ['PRB42', selected.problem.title, 'Паспорт', 'Обстоятельства отказа', 'Нет сигнала',
     'Почему 2 · Повреждение клеммы', 'Потеря питания', 'Доказательства', 'Подтверждено',
-    'Мероприятия · КД/ПД', 'Заменить клемму', 'Инженер', '2026-11-30', 'Запланировано', 'Нет записей.']) {
+    'Мероприятия', 'Заменить клемму', 'Инженер', '2026-11-30', 'Запланировано', 'Нет записей.']) {
     assert.ok(output.includes(value), value);
   }
   assert.doesNotMatch(output, /Утверждено|Другая проблема|PRB43/);

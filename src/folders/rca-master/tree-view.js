@@ -1,4 +1,4 @@
-function renderRcaTree(record, commit, viewport, targetNode) {
+function renderRcaTree(record, commit, viewport, targetNode, dictionaries) {
   const pane = rcaElement('div');
   const tools = rcaElement('div', '', 'rca-tree-tools');
   const scroll = rcaElement('div', '', 'rca-tree-scroll');
@@ -50,7 +50,10 @@ function renderRcaTree(record, commit, viewport, targetNode) {
       const card = rcaElement('article', '', 'rca-tree-card');
       cards.set(node.id, card);
       card.append(rcaElement('strong', node.title));
-      if (level) card.append(rcaElement('small', [states[node.hypothesisState], node.category].filter(Boolean).join(' · ')));
+      const assessment = level ? rcaEvidenceState(record, node.id) : 'unknown';
+      if (level) card.append(rcaElement('small', [states[assessment === 'unknown' ? 'hypothesis' : assessment],
+        node.category].filter(Boolean).join(' · ')));
+      if (node.flagK) card.classList.add('rca-root-cause');
       const controls = rcaElement('div', '', 'rca-tree-actions');
       controls.append(rcaButton('+ Почему', () => rcaEditor('Новая гипотеза', [['Формулировка', 'title', '', {required: true}]],
         values => commit(next => {
@@ -61,12 +64,28 @@ function renderRcaTree(record, commit, viewport, targetNode) {
         if (!level) return editRcaCollection(record, 'symptoms', 'Симптом', symptomFields, commit, node);
         rcaEditor('Причина', [
           ['Формулировка', 'title', node.title, {required: true}], ['Категория', 'category', node.category],
-          ['Статус гипотезы', 'hypothesisState', node.hypothesisState, {choices: states}]
-        ], values => commit(next => {
+          ['Статус гипотезы', 'hypothesisState', assessment === 'unknown' ? 'hypothesis' : assessment,
+            {choices: assessment === 'conflict' ? {...states, conflict:'Противоречие'} : states}]
+        ], async (values, form) => {
           if (!values.title.trim()) throw new Error('Введите формулировку.');
-          Object.assign(next.rcaNodes.find(item => item.id === node.id), values,
-            {title: values.title.trim(), updatedAt: new Date().toISOString()});
-        }));
+          const change = next => Object.assign(next.rcaNodes.find(item => item.id === node.id),
+            {title: values.title.trim(), category:values.category, updatedAt: new Date().toISOString()});
+          const desired = values.hypothesisState;
+          if (['confirmed','refuted'].includes(desired) && desired !== assessment) {
+            const draft = record.evidence.find(item => item.nodeId === node.id &&
+              (!item.verdict || item.verdict === 'unknown') && item.status !== 'cancelled');
+            const dialog = form.closest('dialog');
+            dialog.addEventListener('close', () => editRcaEvidence(record, mutate => commit(next => {
+              change(next);
+              mutate(next);
+            }), dictionaries, draft, node.id, desired), {once:true});
+            return;
+          }
+          if (desired === 'hypothesis' && assessment !== 'unknown') {
+            throw new Error('Чтобы изменить оценку причины, обновите связанные проверки.');
+          }
+          await commit(change);
+        });
       }));
       controls.append(rcaButton('Удалить', async () => {
         if (!window.confirm('Удалить выбранный элемент дерева?')) return;
@@ -76,11 +95,7 @@ function renderRcaTree(record, commit, viewport, targetNode) {
       if (level) {
         const flag = rcaButton('К', async () => {
           try {
-            await commit(next => {
-              const item = next.rcaNodes.find(entry => entry.id === node.id);
-              item.flagK = !item.flagK;
-              item.updatedAt = new Date().toISOString();
-            });
+            await commit(next => toggleRcaActionFlag(next, node.id, 'flagK'));
           } catch (error) { window.alert(error.message); }
         });
         flag.setAttribute('aria-label', 'Предполагаемая коренная причина');
@@ -104,6 +119,7 @@ function renderRcaTree(record, commit, viewport, targetNode) {
         if (node.flagK && verdict !== RCA_VERDICTS.confirmed) {
           card.append(rcaElement('small', 'Коренная причина требует подтверждения.'));
         }
+        if (node.flagK || node.flagM) card.append(rcaElement('small', 'Мероприятия: ' + rcaActionCoverage(record, node.id)));
       }
       card.append(controls);
       column.append(card);

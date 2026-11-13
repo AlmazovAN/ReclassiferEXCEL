@@ -44,6 +44,7 @@
       description: 'Правила обработки причин инцидентов: исключить или считать отказом, с категорией результата',
       freshnessPolicy: 'none'
     }),
+    it_problem_registry: {title: 'Реестр ИТ-проблем', schemaVersion: 1},
     problem_grade: referenceUiConfig('problem_grade', {
       title: 'Связь с IT-проблемами',
       description: 'Привязка IT-проблем к комбинациям классификатора оборудование → элемент → неисправность → причина',
@@ -177,8 +178,6 @@
     columns: [
       ['legacyKey', 'Вспомогательный столбец', 'text|null', false],
       ['problemId', 'Основание № IT-проблемы', 'text|null', true],
-      ['problemStatus', 'Статус PRB', 'text|null', false],
-      ['problemName', 'Имя ИТ-проблемы', 'text|null', false],
       ['equipment', 'Наименование оборудования', 'text|null', true],
       ['element', 'Элемент', 'text|null', true],
       ['fault', 'Неисправность', 'text|null', true],

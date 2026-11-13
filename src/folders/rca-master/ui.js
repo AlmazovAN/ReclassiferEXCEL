@@ -31,6 +31,7 @@ function rcaField(form, label, name, value = '', options = {}) {
     input.value = value ?? '';
   }
   input.required = Boolean(options.required);
+  if (options.hint) input.placeholder = options.hint;
   wrapper.append(input);
   if (options.suggestions?.length) {
     const list = rcaElement('datalist');
@@ -63,6 +64,7 @@ function rcaEditor(title, fields, apply, discard) {
     dialog.remove();
   }, {once: true});
   dialog.addEventListener('cancel', event => { if (save.disabled) event.preventDefault(); });
+  bindRcaSaveShortcut(form, save);
   form.addEventListener('submit', async event => {
     event.preventDefault();
     if (save.disabled) return;
@@ -85,9 +87,23 @@ function rcaEditor(title, fields, apply, discard) {
   dialog.showModal();
 }
 
-function createRcaUi(state, downloadBlob) {
+function bindRcaSaveShortcut(form, save) {
+  form.addEventListener('keydown', event => {
+    if (!event.ctrlKey || event.altKey || event.shiftKey || event.metaKey || event.key !== 'Enter' ||
+        event.isComposing || event.defaultPrevented || save.disabled ||
+        event.target.closest('select, button, [contenteditable]')) return;
+    event.preventDefault();
+    form.requestSubmit(save);
+  });
+}
+
+function createRcaUi(state, downloadBlob, calculateItsmMetrics) {
   const register = document.getElementById('rca-register');
   const search = document.getElementById('rca-search');
+  const statusFilter = document.getElementById('rca-itsm-filter');
+  const officialStatus = document.getElementById('rca-official-status');
+  const officialDownload = document.getElementById('rca-official-download');
+  const officialWarnings = document.getElementById('rca-official-warnings');
   const add = document.getElementById('rca-add');
   const content = document.getElementById('rca-content');
   const message = document.getElementById('rca-message');
@@ -102,9 +118,62 @@ function createRcaUi(state, downloadBlob) {
   const viewports = new Map();
   let rows = [];
   let active = null;
+  let officialRegistry = null;
+  let planLibrary = null;
+  let planStatus = '';
+  let planRequest = 0;
+  async function updatePlanLibrary(library, details = []) {
+    const repository = state.getRepository();
+    const request = ++planRequest;
+    try {
+      const saved = library ? await repository.planLibrary.publish(library) : false;
+      const next = library ?? planLibrary ?? await repository.planLibrary.readLatest();
+      if (repository !== state.getRepository() || request !== planRequest) return;
+      planLibrary = next;
+      planStatus = library ? (saved ? 'Библиотека сохранена.' : 'Библиотека доступна в этой вкладке.') :
+        (next ? 'Используется предыдущая библиотека. ' : 'Библиотека не подключена. ') + details.join(' ');
+    } catch (error) {
+      if (repository !== state.getRepository() || request !== planRequest) return;
+      planStatus = error.message;
+    }
+    render();
+  }
+  let references = null;
+  let selectedOfficial = null;
+  let officialRequest = 0;
+  let pendingOfficial = null;
+  let officialWrite = null;
   let tab = 0;
   let request = 0;
   let busy = false;
+  const analytics = {
+    index:null, months:1, busy:false, status:'Обновите расчёты из export_ITSM.xlsx.',
+    normalizeSite:normalizeRcaMetricSite,
+    async refresh() {
+      if (analytics.busy) return;
+      const repository = state.getRepository();
+      analytics.busy = true;
+      analytics.status = 'Проверка источника…';
+      render();
+      try {
+        const result = await calculateItsmMetrics(analytics.index, status => {
+          analytics.status = status;
+          render();
+        });
+        if (result.type === 'analytics-ready') {
+          const saved = await repository.itsmAnalytics.publish(result.index);
+          analytics.index = result.index;
+          analytics.status = saved ? 'Расчёт обновлён.' : 'Расчёт доступен в текущей вкладке.';
+        } else if (result.type === 'analytics-unchanged') analytics.status = 'Источник и правила не изменились.';
+        else analytics.status = analytics.index ? 'Источник не найден. Показан предыдущий расчёт.' : 'Источник export_ITSM.xlsx не найден.';
+      } catch (error) {
+        analytics.status = (analytics.index ? 'Показан предыдущий расчёт. ' : '') + error.message;
+      } finally {
+        analytics.busy = false;
+        render();
+      }
+    }
+  };
   let targetNode = null;
 
   function navigateToNode(id) {
@@ -116,12 +185,24 @@ function createRcaUi(state, downloadBlob) {
   function renderRegister() {
     const all = new Map(rows.map(row => [row.id, row]));
     for (const [id, record] of local) all.set(id, record.problem);
-    register.replaceChildren(...filterRcaRegistry([...all.values()], search.value).map(row => {
+    const rowsToShow = mergeRcaRegistry([...all.values()], officialRegistry?.records ?? [])
+      .filter(row => !statusFilter.value || row.official?.itsmStatus === statusFilter.value);
+    register.replaceChildren(...filterRcaRegistry(rowsToShow, search.value).map(row => {
       const item = rcaElement('li');
-      const button = rcaButton(row.title, () => void select(row.id));
+      const button = rcaButton(row.title, () => {
+        if (!row.unstarted) return void select(row.id);
+        if (busy || !state.canLeave()) return;
+        ++request;
+        active = null;
+        selectedOfficial = row.prbNumber;
+        message.textContent = '';
+        render();
+      });
       button.prepend(rcaElement('small', rcaDisplayId(row)));
-      button.append(rcaElement('small', RCA_STATUSES[row.status] ?? row.status));
-      button.setAttribute('aria-pressed', String(active?.problem.id === row.id));
+      button.append(rcaElement('small', row.unstarted ? 'Расследование не начато' :
+        row.official ? 'Расследование ведётся · ' + row.official.itsmStatus :
+        row.prbNumber ? 'Официальная запись недоступна' : RCA_STATUSES[row.status] ?? row.status));
+      button.setAttribute('aria-pressed', String((active?.problem.id ?? selectedOfficial) === row.id));
       item.append(button);
       return item;
     }));
@@ -130,8 +211,29 @@ function createRcaUi(state, downloadBlob) {
   function render() {
     renderRegister();
     content.replaceChildren();
-    title.textContent = active ? active.problem.title : 'RCA Master';
+    const official = officialRegistry?.records.find(row => row.prbNumber ===
+      (active?.problem.prbNumber?.toUpperCase() ?? selectedOfficial));
+    title.textContent = active?.problem.title ?? official?.title ?? 'RCA Master';
     if (!active) {
+      if (official) {
+        content.append(renderOfficialPrb(official, officialRegistry), rcaButton('Начать расследование', async () => {
+          try {
+            if (pendingOfficial?.problem.prbNumber !== official.prbNumber) {
+              pendingOfficial = createRcaProblem({title: official.title, prbNumber: official.prbNumber});
+            }
+            tab = 0;
+            await commit(next => {
+              next.problem.description = official.description ?? '';
+              next.problem.project = official.project ?? '';
+              next.problem.officialSource = {sourceHash: officialRegistry.sourceHash, fileName: officialRegistry.fileName,
+                loadedAt: officialRegistry.loadedAt, prbNumber: official.prbNumber};
+            }, pendingOfficial);
+            pendingOfficial = null;
+            selectedOfficial = null;
+          } catch (error) { message.textContent = error.message; }
+        }, 'primary'));
+        return;
+      }
       content.append(rcaElement('p', 'Выберите или создайте проблему'));
       return;
     }
@@ -142,12 +244,12 @@ function createRcaUi(state, downloadBlob) {
         message.textContent = 'Завершите сохранение перед печатью отчёта.';
         return;
       }
-      try { printRcaReport(active); }
+      try { printRcaReport(active, withOfficialSnapshot(active).officialSnapshot); }
       catch (error) { message.textContent = error.message; }
     }));
     content.append(rcaButton('Экспорт карточки в JSON', async () => {
       try {
-        const blob = await exportRcaArchive([problem], [], () => active);
+        const blob = await exportRcaArchive([problem], [], () => withOfficialSnapshot(active));
         downloadBlob(blob, problem.id + '.json');
         unexported.delete(problem.id);
       } catch (error) { message.textContent = error.message; }
@@ -161,14 +263,27 @@ function createRcaUi(state, downloadBlob) {
       navigation.append(button);
     });
     content.append(navigation);
-    if (tab === 0) content.append(renderRcaPassport(active, commit, dictionaries));
+    if (tab === 0) {
+      if (official) content.append(renderOfficialPrb(official, officialRegistry));
+      else if (problem.prbNumber) content.append(rcaElement('p', 'Официальная запись недоступна.'));
+      content.append(renderRcaMetrics(problem, analytics), renderRcaPassport(active, commit,
+        rcaPassportReferences(dictionaries, officialRegistry, references, problem.prbNumber)));
+    }
     if (tab === 1) {
       if (!viewports.has(problem.id)) viewports.set(problem.id, {scale: 1, left: 0, top: 0});
-      content.append(renderRcaTree(active, commit, viewports.get(problem.id), targetNode));
+      content.append(renderRcaTree(active, commit, viewports.get(problem.id), targetNode, dictionaries));
       targetNode = null;
     }
     if (tab === 2) content.append(renderRcaEvidence(active, commit, navigateToNode, dictionaries));
-    if (tab === 3) content.append(renderRcaActions(active, commit, navigateToNode));
+    if (tab === 3) content.append(renderRcaActions(active, commit, navigateToNode, planLibrary));
+  }
+
+  function withOfficialSnapshot(record) {
+    const number = record.problem.prbNumber?.toUpperCase();
+    const current = officialRegistry?.records.find(row => row.prbNumber === number);
+    const snapshot = current ? {...current,fileName:officialRegistry.fileName,loadedAt:officialRegistry.loadedAt} :
+      record.officialSnapshot?.prbNumber === number ? record.officialSnapshot : undefined;
+    return {...record,officialSnapshot:snapshot};
   }
 
   function showSaved(record) {
@@ -199,6 +314,7 @@ function createRcaUi(state, downloadBlob) {
       if (sequence !== request) return;
       if (!result.record) throw new Error('Карточка недоступна.');
       active = result.record;
+      selectedOfficial = null;
       tab = 0;
       message.textContent = result.issues.length ? 'Прочитана доступная версия. Повреждённые файлы: ' + result.issues.join(', ') : '';
       render();
@@ -252,18 +368,74 @@ function createRcaUi(state, downloadBlob) {
     }), form.problem);
   }, state.discardDraft));
   search.addEventListener('input', renderRegister);
+  statusFilter.addEventListener('change', renderRegister);
+
+  function setOfficialRegistry(registry, status) {
+    const previous = statusFilter.value;
+    officialRegistry = registry;
+    statusFilter.replaceChildren(new Option('Все статусы ITSM', ''), ...Array.from(
+      new Set(registry?.records.map(row => row.itsmStatus) ?? [])
+    ).sort((left, right) => left.localeCompare(right, 'ru')).map(value => new Option(value, value)));
+    if (Array.from(statusFilter.options).some(option => option.value === previous)) statusFilter.value = previous;
+    officialStatus.textContent = status;
+    officialDownload.hidden = !registry;
+    const warnings = registry?.warnings ?? [];
+    officialWarnings.hidden = !warnings.length;
+    officialWarnings.querySelector('ul').replaceChildren(...warnings.map(warning => rcaElement('li', warning)));
+    render();
+  }
+
+  async function updateOfficialRegistry(registry, details = []) {
+    const repository = state.getRepository();
+    const sequence = ++officialRequest;
+    const current = () => repository === state.getRepository() && sequence === officialRequest;
+    try {
+      if (!registry) {
+        const cached = officialRegistry ?? await repository.officialRegistry.readLatest();
+        if (current()) setOfficialRegistry(cached,
+          (cached ? 'Источник не обновлялся. ' : 'Справочник не подключён. ') + details.join(' '));
+        return;
+      }
+      validateOfficialRegistry(registry);
+      let status;
+      try {
+        const write = repository.officialRegistry.publish(registry);
+        officialWrite = write;
+        status = await write ? 'Реестр сохранён в рабочей папке.' :
+          'Реестр загружен в память. Прямая запись недоступна.';
+      } catch (error) {
+        if (current()) officialStatus.textContent = 'Реестр не обновлён: ' + error.message;
+        return;
+      }
+      if (current()) setOfficialRegistry(registry,
+        status + ' PRB: ' + registry.records.length + (registry.warnings.length ? ' · Предупреждений: ' + registry.warnings.length : ''));
+    } catch (error) {
+      if (current()) officialStatus.textContent = error.message;
+    } finally {
+      if (current()) officialWrite = null;
+    }
+  }
+
+  officialDownload.addEventListener('click', () => {
+    if (!officialRegistry) return;
+    downloadBlob(new Blob([JSON.stringify(officialRegistry, null, 2)], {type:'application/json'}), 'it-problem-registry.json');
+  });
   dictionaryButton.disabled = false;
   dictionaryButton.addEventListener('click', () => {
     if (busy || !state.canLeave()) return;
     void openRcaDictionaries({
       button: dictionaryButton, repository: state.getRepository(),
+      planLibrary, planStatus,
       getRows: async repository => {
         const {records} = await repository.listIndex();
         const all = new Map(records.map(row => [row.id, row]));
         for (const [id, record] of local) all.set(id, record.problem);
         return [...all.values()];
       },
-      load: async (repository, id) => local.get(id) ?? (await repository.loadProblem(id)).record,
+      load: async (repository, id) => {
+        const record = local.get(id) ?? (await repository.loadProblem(id)).record;
+        return record ? withOfficialSnapshot(record) : null;
+      },
       read: repository => temporaryDictionaries ? dictionaries : repository.readDictionaries(),
       download(blob, name) {
         downloadBlob(blob, name);
@@ -295,9 +467,19 @@ function createRcaUi(state, downloadBlob) {
     });
   });
   state.onWorkspaceChanged(async () => {
+    const repository = state.getRepository();
+    planLibrary = null;
+    planStatus = '';
+    void updatePlanLibrary(null);
+    analytics.index = null;
+    analytics.status = 'Обновите расчёты из export_ITSM.xlsx.';
     const sequence = ++request;
     rows = [];
     active = null;
+    selectedOfficial = null;
+    pendingOfficial = null;
+    references = null;
+    setOfficialRegistry(null, 'Справочник не подключён.');
     local.clear();
     unexported.clear();
     dictionaries = [];
@@ -307,7 +489,11 @@ function createRcaUi(state, downloadBlob) {
     message.textContent = '';
     render();
     try {
-      await refresh();
+      await Promise.all([refresh(), updateOfficialRegistry(null), repository.itsmAnalytics.readLatest().then(index => {
+        if (repository !== state.getRepository() || analytics.busy || !index) return;
+        analytics.index = index;
+        analytics.status = 'Сохранённый расчёт. Актуальность источника ещё не проверена.';
+      })]);
       if (sequence === request) render();
     } catch (error) {
       if (sequence === request) message.textContent = error.message;
@@ -319,5 +505,13 @@ function createRcaUi(state, downloadBlob) {
       event.returnValue = true;
     }
   });
-  return {hasTemporaryChanges: () => busy || unexported.size > 0 || unexportedDictionaries, showSaved};
+  return {
+    hasTemporaryChanges: () => busy || analytics.busy || Boolean(officialWrite) || unexported.size > 0 || unexportedDictionaries,
+    showSaved, updateOfficialRegistry, updatePlanLibrary, setReferences(value) { references = value; render(); },
+    markAnalyticsStale() {
+      if (!analytics.index) return;
+      analytics.status = 'Выгрузка ITSM могла измениться. Обновите расчёты.';
+      render();
+    }
+  };
 }
