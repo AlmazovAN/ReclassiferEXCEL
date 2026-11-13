@@ -1,12 +1,11 @@
-// FILE CONTRACT: single source of stable Dataset identity and persistence metadata.
+// FILE CONTRACT: single source of stable Dataset identity and dependency metadata.
 // Purpose: define Dataset IDs, kinds, schema versions, emptiness policy and storage strategies once.
-// Owns: stable Dataset contract properties shared by runtime lifecycle and SQLite.
+// Owns: stable Dataset contract properties used by the folders runtime and Excel handlers.
 // Reads: no UI/module state.
 // Writes: no application state or persistence.
 // Public API: globalThis.ReclassifierDatasetCatalog.
-// Must not: contain workbook rules, UI descriptions, normalization logic or SQLite implementation.
-// Related tests: test_dataset_catalog.js, test_database_contract.js,
-//                test_architecture_guardrails.py, test_js_fragment_contract.py.
+// Must not: contain workbook rules, UI descriptions or workbook normalization logic.
+// Related tests: tests/test_folders*.cjs.
 
 (() => {
   'use strict';

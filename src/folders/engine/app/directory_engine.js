@@ -2,9 +2,9 @@
 // Purpose: classify selected local Excel files by workbook headers and prepare references.
 // Owns: transient scan candidates; never persists handles, file bytes or workbook objects.
 // Reads: SheetJS, existing Reference/Equipment/Classifier/DKN handlers.
-// Writes: no SQLite and no source files; publishes validated reference batch only.
+// Writes: no source file writes; publishes validated reference batch only.
 // Public API: ReclassifierDirectoryEngine.scan(), .enumerate(), .manifest().
-// Must not: call SQLite, export, background poll, pick a duplicate silently or write Excel.
+// Must not: perform direct export, background poll, pick a duplicate silently or write Excel.
 // Related tests: tests/test_directory_workspace.js, tests/test_emergency_excel_mode.py.
 (() => {
   'use strict';

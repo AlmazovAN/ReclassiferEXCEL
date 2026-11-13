@@ -455,7 +455,7 @@
       if (sourceRowHasData(row, pos)) lastSourceRow = rowIndex;
     }
 
-    // SQLite integration requires the normalized Dataset, not an exported
+    // Downstream processing requires the normalized Dataset, not an exported
     // 50k-row XLSX. Avoid constructing and serializing 34 extra spreadsheet
     // columns in that mode; normal standalone ITSM processing is unchanged.
     const datasetOnly = payload?.datasetOnly === true;

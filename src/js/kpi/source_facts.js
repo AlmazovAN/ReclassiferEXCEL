@@ -4,7 +4,7 @@
 // Reads: normalized records supplied by callers only.
 // Writes: nothing.
 // Public API: globalThis.ReclassifierKpiSourceFacts.
-// Must not: read SQLite, parse Excel, render UI, persist Dataset state or calculate final KPI coefficients.
+// Must not: parse Excel, render UI, persist Dataset state or calculate final KPI coefficients.
 
 (() => {
   'use strict';

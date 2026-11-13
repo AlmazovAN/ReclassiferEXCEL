@@ -1,5 +1,5 @@
 // PR-03: explicit, guarded XLSX replacement. No UI hook until PR-04/05.
-// No SQLite, auto-write, background processing or network access.
+// No implicit source writes, background processing or network access.
 (() => {
   'use strict';
 

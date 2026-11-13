@@ -114,7 +114,7 @@
 
   // The canonical read-only handoff to the Mobile Brigade Worker. ITSM stores
   // arrays ordered by fields; legacy datasets can also contain named objects.
-  // Both module-local and SQLite integrations must use this same projection.
+  // All Excel-to-Mobile-Brigade enrichments use this same projection.
   function mobileBrigadeLinkRows(records, storedFields = null) {
     if (!Array.isArray(records)) {
       throw new Error('ITSM → МБ: записи ITSM должны быть массивом.');

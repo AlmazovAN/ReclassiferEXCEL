@@ -144,10 +144,8 @@
     const errors = [];
     const partitionApi = globalThis.ReclassifierEquipmentPartitions;
     const ownerMap = partitionApi?.ownership({
-      mounted: globalThis.ReclassifierRuntimeDataRepository?.get?.('mounted') ||
-        state.equipmentCatalogs?.mounted,
-      stationary: globalThis.ReclassifierRuntimeDataRepository?.get?.('stationary') ||
-        state.equipmentCatalogs?.stationary
+      mounted: state.equipmentCatalogs?.mounted,
+      stationary: state.equipmentCatalogs?.stationary
     }) || new Map();
     const seenIds = new Set();
     let sourceRows = 0;
@@ -364,28 +362,3 @@
     if (combined) equipmentLogicDatasetLifecycle.activate('combined', combined);
     return combined;
   }
-
-
-  function buildRuntimeEquipmentCombined() {
-    const repository = globalThis.ReclassifierRuntimeDataRepository;
-    if (!repository?.isSqliteAuthoritative?.()) return null;
-
-    const catalogs = {};
-    for (const id of EQUIPMENT_SOURCE_IDS) {
-      const instance = repository.get(id);
-      if (!instance) return null;
-      catalogs[id] = instance;
-    }
-
-    const combined = buildEquipmentCombinedFromCatalogs(catalogs, 'sqlite');
-    if (combined) {
-      combined.meta.sourceType = 'sqlite';
-      combined.meta.fileName = 'Equipment_Combined · Reclassifier.db';
-    }
-    return combined;
-  }
-
-  globalThis.ReclassifierRuntimeDataRepository?.registerDerived?.(
-    'combined',
-    buildRuntimeEquipmentCombined
-  );

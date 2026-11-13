@@ -4,7 +4,7 @@
 // Reads: workbook objects plus schema constants from reference_config.
 // Writes: nothing; returns normalized candidates only.
 // Public API: normalizer functions consumed by Reference Manager and Database Integration.
-// Must not: render UI, commit Dataset state or access SQLite.
+// Must not: render UI, commit Dataset state or access persistent storage.
 // Related tests: test_reference_architecture.py, test_reference_baseline_contract.py,
 //                test_database_recognizer.js, test_architecture_guardrails.py.
 

@@ -4,7 +4,7 @@
 // Reads: SheetJS workbook data plus Reference/Equipment/Failure Classifier schema declarations.
 // Writes: no application state or persistent data.
 // Public API: globalThis.ReclassifierDatasetClassifier.
-// Must not: render UI, mutate Dataset state or access SQLite/storage.
+// Must not: render UI, mutate Dataset state or access file storage.
 // Related tests: test_dataset_classifier.js, test_database_recognizer.js,
 //                test_reference_architecture.py, test_architecture_guardrails.py.
 

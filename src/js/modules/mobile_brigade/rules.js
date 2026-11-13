@@ -172,7 +172,7 @@
     }
     const normalized = text(value);
     if (!normalized) return null;
-    // SQLite stores Date objects as ISO timestamps with explicit UTC offsets.
+    // Imported ISO timestamps with explicit UTC offsets represent absolute instants.
     // Interpret those as instants, unlike zone-less export wall-clock dates.
     if (/^\d{4}-\d{2}-\d{2}T.*(?:Z|[+-]\d{2}:?\d{2})$/i.test(normalized)) {
       const zoned = Date.parse(normalized);
