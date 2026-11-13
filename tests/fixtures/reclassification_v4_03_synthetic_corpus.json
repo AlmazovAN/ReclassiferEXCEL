@@ -1,0 +1,962 @@
+{
+  "schemaVersion": 1,
+  "origin": "synthetic",
+  "purpose": "Illustrative review cases, not a verified independent industrial benchmark",
+  "classifier": [
+    [
+      "СВР",
+      "Кабель камеры",
+      "Обрыв кабеля",
+      "Механическое воздействие"
+    ],
+    [
+      "СВР",
+      "Кабель камеры",
+      "Обрыв кабеля",
+      "Причина не установлена"
+    ],
+    [
+      "СВР",
+      "Блок питания",
+      "Потеря питания",
+      "Неисправность источника питания"
+    ],
+    [
+      "СВР",
+      "Камера",
+      "Внутренний отказ",
+      "Попадание влаги"
+    ],
+    [
+      "Станция связи",
+      "Блок питания",
+      "Потеря питания",
+      "Внешнее электроснабжение"
+    ]
+  ],
+  "cases": [
+    {
+      "id": "SYN-RITM-PLAN-01",
+      "partition": "development",
+      "incidentGroup": "G-PLAN-A",
+      "requestType": "RITM",
+      "population": "mounted",
+      "source": {
+        "shortDescription": "Плановая настройка обзора камеры",
+        "description": "Изменить направление обзора на испытательном участке",
+        "closureNote": "Угол обзора изменён, неисправностей не обнаружено",
+        "extraReason": null
+      },
+      "reference": {
+        "primaryPath": [
+          null,
+          null,
+          null,
+          null
+        ],
+        "engineerPath": [
+          null,
+          null,
+          null,
+          null
+        ],
+        "engineerOrigin": "none",
+        "engineerBranchStatus": "none"
+      },
+      "review": {
+        "status": "synthetic_only",
+        "disposition": "KEEP_RITM",
+        "failureState": "NON_FAILURE",
+        "analyticalType": "RITM",
+        "expectedStatus": "RITM_SERVICE",
+        "proposedPath": [
+          null,
+          null,
+          null,
+          null
+        ],
+        "applyReady": false,
+        "levelEvidence": {},
+        "evidenceGrade": "sufficient",
+        "reason": "Работы плановые, отказа нет"
+      },
+      "observations": {
+        "reported": "Жалоба отсутствует: просьба настроить обзор",
+        "diagnosed": "Неисправностей не найдено",
+        "performed": "Изменён угол обзора",
+        "outcome": "Плановое обслуживание завершено"
+      }
+    },
+    {
+      "id": "SYN-RITM-FAIL-01",
+      "partition": "development",
+      "incidentGroup": "G-HIDDEN-A",
+      "requestType": "RITM",
+      "population": "mounted",
+      "source": {
+        "shortDescription": "Сервисная проверка камеры СВР",
+        "description": "У камеры пропало изображение",
+        "closureNote": "Найден обрыв кабеля камеры: кабель пережат кронштейном. Кабель заменён, связь восстановлена",
+        "extraReason": null
+      },
+      "reference": {
+        "primaryPath": [
+          null,
+          null,
+          null,
+          null
+        ],
+        "engineerPath": [
+          null,
+          null,
+          null,
+          null
+        ],
+        "engineerOrigin": "none",
+        "engineerBranchStatus": "none"
+      },
+      "review": {
+        "status": "synthetic_only",
+        "disposition": "RITM_AS_INC",
+        "failureState": "FAILURE",
+        "analyticalType": "INC",
+        "expectedStatus": "READY",
+        "proposedPath": [
+          "СВР",
+          "Кабель камеры",
+          "Обрыв кабеля",
+          "Механическое воздействие"
+        ],
+        "applyReady": true,
+        "levelEvidence": {
+          "equipment": "Указана система СВР",
+          "element": "Диагностирован кабель камеры",
+          "failure": "Подтверждён обрыв кабеля",
+          "cause": "Причина установлена: кабель пережат кронштейном"
+        },
+        "evidenceGrade": "sufficient",
+        "reason": "Полная разрешённая ветка с отдельным основанием для каждого уровня"
+      },
+      "observations": {
+        "reported": "Нет изображения камеры",
+        "diagnosed": "Обрыв кабеля от пережатия кронштейном",
+        "performed": "Кабель заменён",
+        "outcome": "Изображение восстановлено"
+      }
+    },
+    {
+      "id": "SYN-RITM-UNKNOWN-01",
+      "partition": "development",
+      "incidentGroup": "G-RITM-UNKNOWN",
+      "requestType": "RITM",
+      "population": "mounted",
+      "source": {
+        "shortDescription": "Проверить подключение видеокамеры",
+        "description": "Периодически пропадает видеопоток",
+        "closureNote": "Проведён осмотр, результат проверки не указан",
+        "extraReason": null
+      },
+      "reference": {
+        "primaryPath": [
+          null,
+          null,
+          null,
+          null
+        ],
+        "engineerPath": [
+          null,
+          null,
+          null,
+          null
+        ],
+        "engineerOrigin": "none",
+        "engineerBranchStatus": "none"
+      },
+      "review": {
+        "status": "synthetic_only",
+        "disposition": "REVIEW",
+        "failureState": "UNKNOWN",
+        "analyticalType": "RITM",
+        "expectedStatus": "REVIEW",
+        "proposedPath": [
+          null,
+          null,
+          null,
+          null
+        ],
+        "applyReady": false,
+        "levelEvidence": {},
+        "evidenceGrade": "insufficient",
+        "reason": "Нет подтверждённой диагностики факта отказа"
+      },
+      "observations": {
+        "reported": "Периодически пропадает видеопоток",
+        "diagnosed": null,
+        "performed": "Осмотр",
+        "outcome": null
+      }
+    },
+    {
+      "id": "SYN-INC-PARTIAL-01",
+      "partition": "development",
+      "incidentGroup": "G-CABLE-PARTIAL",
+      "requestType": "INC",
+      "population": "mounted",
+      "source": {
+        "shortDescription": "Нет изображения СВР",
+        "description": "Камера не передаёт видеопоток",
+        "closureNote": "Найден обрыв кабеля камеры, кабель восстановлен, причина не выяснена документально",
+        "extraReason": null
+      },
+      "reference": {
+        "primaryPath": [
+          null,
+          null,
+          null,
+          null
+        ],
+        "engineerPath": [
+          null,
+          null,
+          null,
+          null
+        ],
+        "engineerOrigin": "none",
+        "engineerBranchStatus": "none"
+      },
+      "review": {
+        "status": "synthetic_only",
+        "disposition": "INC_FAILURE",
+        "failureState": "FAILURE",
+        "analyticalType": "INC",
+        "expectedStatus": "PARTIAL",
+        "proposedPath": [
+          null,
+          null,
+          null,
+          null
+        ],
+        "applyReady": false,
+        "levelEvidence": {},
+        "evidenceGrade": "insufficient",
+        "reason": "Подтверждён дефект, не установлена физическая причина",
+        "candidatePath": [
+          "СВР",
+          "Кабель камеры",
+          "Обрыв кабеля",
+          null
+        ]
+      },
+      "observations": {
+        "reported": "Нет изображения",
+        "diagnosed": "Обрыв кабеля подтверждён",
+        "performed": "Восстановление кабельной линии",
+        "outcome": "Связь восстановлена, причина не выяснена"
+      }
+    },
+    {
+      "id": "SYN-INC-NONFAILURE-01",
+      "partition": "development",
+      "incidentGroup": "G-INC-NONFAIL",
+      "requestType": "INC",
+      "population": "mounted",
+      "source": {
+        "shortDescription": "Не показывает камера СВР",
+        "description": "Сообщено об отсутствии изображения",
+        "closureNote": "Камера проверена и исправна; неисправность не подтверждена",
+        "extraReason": null
+      },
+      "reference": {
+        "primaryPath": [
+          null,
+          null,
+          null,
+          null
+        ],
+        "engineerPath": [
+          null,
+          null,
+          null,
+          null
+        ],
+        "engineerOrigin": "none",
+        "engineerBranchStatus": "none"
+      },
+      "review": {
+        "status": "synthetic_only",
+        "disposition": "INC_NON_FAILURE_OPEN",
+        "failureState": "NON_FAILURE",
+        "analyticalType": "INC",
+        "expectedStatus": "INC_NON_FAILURE",
+        "proposedPath": [
+          null,
+          null,
+          null,
+          null
+        ],
+        "applyReady": false,
+        "levelEvidence": {},
+        "evidenceGrade": "sufficient",
+        "reason": "Политика INC без отказа остаётся открытой до V4-12"
+      },
+      "observations": {
+        "reported": "Отсутствует изображение",
+        "diagnosed": "Проверена исправная камера",
+        "performed": "Проверка оборудования",
+        "outcome": "Отказ не подтверждён"
+      }
+    },
+    {
+      "id": "SYN-INC-OTHER-OBJECT-01",
+      "partition": "development",
+      "incidentGroup": "G-OBJECT",
+      "requestType": "INC",
+      "population": "mounted",
+      "source": {
+        "shortDescription": "Не работает камера СВР",
+        "description": "Камера не показывает изображение",
+        "closureNote": "Обнаружен отказ источника питания СВР. Камера исправна, причина отказа питания не определена",
+        "extraReason": null
+      },
+      "reference": {
+        "primaryPath": [
+          "СВР",
+          "Камера",
+          "Внутренний отказ",
+          "Попадание влаги"
+        ],
+        "engineerPath": [
+          null,
+          null,
+          null,
+          null
+        ],
+        "engineerOrigin": "none",
+        "engineerBranchStatus": "none"
+      },
+      "review": {
+        "status": "synthetic_only",
+        "disposition": "INC_FAILURE",
+        "failureState": "FAILURE",
+        "analyticalType": "INC",
+        "expectedStatus": "PARTIAL",
+        "proposedPath": [
+          null,
+          null,
+          null,
+          null
+        ],
+        "applyReady": false,
+        "levelEvidence": {},
+        "evidenceGrade": "insufficient",
+        "reason": "Объект жалобы не совпадает с неисправным компонентом",
+        "candidatePath": [
+          "СВР",
+          "Блок питания",
+          "Потеря питания",
+          null
+        ]
+      },
+      "observations": {
+        "reported": "Не работает камера",
+        "diagnosed": "Неисправен источник питания, камера исправна",
+        "performed": null,
+        "outcome": "Остался невыясненным механизм отказа питания"
+      }
+    },
+    {
+      "id": "SYN-INC-MULTIDEFECT-01",
+      "partition": "development",
+      "incidentGroup": "G-MULTI",
+      "requestType": "INC",
+      "population": "mounted",
+      "source": {
+        "shortDescription": "Несколько отказов СВР",
+        "description": "Отключения питания и видеопотока",
+        "closureNote": "Обнаружен обрыв кабеля и неисправный блок питания. Заменены оба элемента",
+        "extraReason": null
+      },
+      "reference": {
+        "primaryPath": [
+          null,
+          null,
+          null,
+          null
+        ],
+        "engineerPath": [
+          null,
+          null,
+          null,
+          null
+        ],
+        "engineerOrigin": "none",
+        "engineerBranchStatus": "none"
+      },
+      "review": {
+        "status": "synthetic_only",
+        "disposition": "INC_FAILURE",
+        "failureState": "FAILURE",
+        "analyticalType": "INC",
+        "expectedStatus": "REVIEW",
+        "proposedPath": [
+          null,
+          null,
+          null,
+          null
+        ],
+        "applyReady": false,
+        "levelEvidence": {},
+        "evidenceGrade": "disputed",
+        "reason": "Два возможных дефекта, нельзя без обоснования выбрать один путь"
+      },
+      "observations": {
+        "reported": "Питание и видеопоток недоступны",
+        "diagnosed": "Обрыв кабеля и неисправный блок питания",
+        "performed": "Заменены оба компонента",
+        "outcome": null
+      }
+    },
+    {
+      "id": "SYN-INC-UNKNOWN-CAUSE-01",
+      "partition": "development",
+      "incidentGroup": "G-CAUSE-UNKNOWN",
+      "requestType": "INC",
+      "population": "mounted",
+      "source": {
+        "shortDescription": "Обрыв кабеля СВР",
+        "description": "Отсутствует изображение на линии",
+        "closureNote": "Диагностирован обрыв кабеля камеры СВР. Установить причину обрыва не удалось",
+        "extraReason": null
+      },
+      "reference": {
+        "primaryPath": [
+          null,
+          null,
+          null,
+          null
+        ],
+        "engineerPath": [
+          null,
+          null,
+          null,
+          null
+        ],
+        "engineerOrigin": "none",
+        "engineerBranchStatus": "none"
+      },
+      "review": {
+        "status": "synthetic_only",
+        "disposition": "INC_FAILURE",
+        "failureState": "FAILURE",
+        "analyticalType": "INC",
+        "expectedStatus": "READY",
+        "proposedPath": [
+          "СВР",
+          "Кабель камеры",
+          "Обрыв кабеля",
+          "Причина не установлена"
+        ],
+        "applyReady": true,
+        "levelEvidence": {
+          "equipment": "Указана система СВР",
+          "element": "Диагностирован кабель камеры",
+          "failure": "Подтверждён обрыв кабеля",
+          "cause": "Прямо установлено: причина неизвестна; в демонстрационном справочнике ветка существует"
+        },
+        "evidenceGrade": "sufficient",
+        "reason": "Полная разрешённая ветка с отдельным основанием для каждого уровня"
+      },
+      "observations": {
+        "reported": "Нет изображения",
+        "diagnosed": "Обрыв кабеля подтверждён, причина не установлена",
+        "performed": null,
+        "outcome": null
+      }
+    },
+    {
+      "id": "SYN-INC-MISSING-BRANCH-01",
+      "partition": "development",
+      "incidentGroup": "G-MISSING-BRANCH",
+      "requestType": "INC",
+      "population": "mounted",
+      "source": {
+        "shortDescription": "Неисправность камеры СВР",
+        "description": "Пропало изображение",
+        "closureNote": "Исполнитель отметил внутренний отказ камеры и предполагаемый перегрев",
+        "extraReason": null
+      },
+      "reference": {
+        "primaryPath": [
+          null,
+          null,
+          null,
+          null
+        ],
+        "engineerPath": [
+          "СВР",
+          "Камера",
+          "Внутренний отказ",
+          "Перегрев"
+        ],
+        "engineerOrigin": "illustrative",
+        "engineerBranchStatus": "outside_classifier"
+      },
+      "review": {
+        "status": "synthetic_only",
+        "disposition": "REVIEW",
+        "failureState": "FAILURE",
+        "analyticalType": "INC",
+        "expectedStatus": "REVIEW",
+        "proposedPath": [
+          null,
+          null,
+          null,
+          null
+        ],
+        "applyReady": false,
+        "levelEvidence": {},
+        "evidenceGrade": "disputed",
+        "reason": "Инженерная гипотеза отсутствует в справочнике, но это не ошибка инженера"
+      },
+      "observations": {
+        "reported": "Нет изображения",
+        "diagnosed": "Внутренний отказ отмечен, перегрев только предполагается",
+        "performed": null,
+        "outcome": null
+      }
+    },
+    {
+      "id": "SYN-INC-DUPLICATE-A",
+      "partition": "development",
+      "incidentGroup": "G-DUPLICATE",
+      "requestType": "INC",
+      "population": "mounted",
+      "source": {
+        "shortDescription": "Отсутствует питание СВР",
+        "description": "Блок питания видеокамеры не включается",
+        "closureNote": "Блок питания неисправен, после замены устройство работает",
+        "extraReason": null
+      },
+      "reference": {
+        "primaryPath": [
+          null,
+          null,
+          null,
+          null
+        ],
+        "engineerPath": [
+          null,
+          null,
+          null,
+          null
+        ],
+        "engineerOrigin": "none",
+        "engineerBranchStatus": "none"
+      },
+      "review": {
+        "status": "synthetic_only",
+        "disposition": "INC_FAILURE",
+        "failureState": "FAILURE",
+        "analyticalType": "INC",
+        "expectedStatus": "PARTIAL",
+        "proposedPath": [
+          null,
+          null,
+          null,
+          null
+        ],
+        "applyReady": false,
+        "levelEvidence": {},
+        "evidenceGrade": "insufficient",
+        "reason": "Дубликат с единым incidentGroup, причина не доказана",
+        "candidatePath": [
+          "СВР",
+          "Блок питания",
+          "Потеря питания",
+          null
+        ]
+      },
+      "observations": {
+        "reported": "Нет питания",
+        "diagnosed": "Неисправность блока питания",
+        "performed": "Заменён блок",
+        "outcome": "Работа восстановлена"
+      }
+    },
+    {
+      "id": "SYN-INC-DUPLICATE-B",
+      "partition": "development",
+      "incidentGroup": "G-DUPLICATE",
+      "requestType": "INC",
+      "population": "mounted",
+      "source": {
+        "shortDescription": "Отсутствует питание СВР",
+        "description": "Блок питания видеокамеры не включается",
+        "closureNote": "Блок питания неисправен, после замены устройство работает",
+        "extraReason": null
+      },
+      "reference": {
+        "primaryPath": [
+          null,
+          null,
+          null,
+          null
+        ],
+        "engineerPath": [
+          null,
+          null,
+          null,
+          null
+        ],
+        "engineerOrigin": "none",
+        "engineerBranchStatus": "none"
+      },
+      "review": {
+        "status": "synthetic_only",
+        "disposition": "INC_FAILURE",
+        "failureState": "FAILURE",
+        "analyticalType": "INC",
+        "expectedStatus": "PARTIAL",
+        "proposedPath": [
+          null,
+          null,
+          null,
+          null
+        ],
+        "applyReady": false,
+        "levelEvidence": {},
+        "evidenceGrade": "insufficient",
+        "reason": "Вторая запись того же события в той же части корпуса",
+        "candidatePath": [
+          "СВР",
+          "Блок питания",
+          "Потеря питания",
+          null
+        ]
+      },
+      "observations": {
+        "reported": "Нет питания",
+        "diagnosed": "Неисправность блока питания",
+        "performed": "Заменён блок",
+        "outcome": "Работа восстановлена"
+      }
+    },
+    {
+      "id": "SYN-STATIONARY-01",
+      "partition": "development",
+      "incidentGroup": "G-STATIONARY-A",
+      "requestType": "INC",
+      "population": "stationary",
+      "source": {
+        "shortDescription": "Не отвечает узел связи",
+        "description": "Станция связи перестала отвечать на запросы",
+        "closureNote": "Связь восстановлена после переподключения питания",
+        "extraReason": null
+      },
+      "reference": {
+        "primaryPath": [
+          null,
+          null,
+          null,
+          null
+        ],
+        "engineerPath": [
+          null,
+          null,
+          null,
+          null
+        ],
+        "engineerOrigin": "none",
+        "engineerBranchStatus": "none"
+      },
+      "review": {
+        "status": "requires_independent_review",
+        "disposition": "REVIEW",
+        "failureState": "UNKNOWN",
+        "analyticalType": "INC",
+        "expectedStatus": "REVIEW",
+        "proposedPath": [
+          null,
+          null,
+          null,
+          null
+        ],
+        "applyReady": false,
+        "levelEvidence": {},
+        "evidenceGrade": "insufficient",
+        "reason": "Инженерный эталон стационарного оборудования отсутствует"
+      },
+      "observations": {
+        "reported": "Станция связи не отвечает",
+        "diagnosed": null,
+        "performed": "Переподключено питание",
+        "outcome": "Работа восстановлена без локализации причины"
+      }
+    },
+    {
+      "id": "SYN-RITM-PLAN-02",
+      "partition": "holdout",
+      "incidentGroup": "G-PLAN-B",
+      "requestType": "RITM",
+      "population": "mounted",
+      "source": {
+        "shortDescription": "Монтаж камеры СВР",
+        "description": "Перенос камеры на другой кронштейн",
+        "closureNote": "Монтаж завершён, технических отказов не обнаружено",
+        "extraReason": null
+      },
+      "reference": {
+        "primaryPath": [
+          null,
+          null,
+          null,
+          null
+        ],
+        "engineerPath": [
+          null,
+          null,
+          null,
+          null
+        ],
+        "engineerOrigin": "none",
+        "engineerBranchStatus": "none"
+      },
+      "review": {
+        "status": "synthetic_only",
+        "disposition": "KEEP_RITM",
+        "failureState": "NON_FAILURE",
+        "analyticalType": "RITM",
+        "expectedStatus": "RITM_SERVICE",
+        "proposedPath": [
+          null,
+          null,
+          null,
+          null
+        ],
+        "applyReady": false,
+        "levelEvidence": {},
+        "evidenceGrade": "sufficient",
+        "reason": "Услуга монтажа не равна отказу"
+      },
+      "observations": {
+        "reported": "Плановый перенос камеры",
+        "diagnosed": "Отказы не выявлены",
+        "performed": "Монтаж на новом кронштейне",
+        "outcome": "Перенос завершён"
+      }
+    },
+    {
+      "id": "SYN-RITM-FAIL-02",
+      "partition": "holdout",
+      "incidentGroup": "G-HIDDEN-B",
+      "requestType": "RITM",
+      "population": "mounted",
+      "source": {
+        "shortDescription": "Проверка камеры по сервисной заявке",
+        "description": "Камера СВР выключается после вибрации",
+        "closureNote": "Найден обрыв кабеля камеры после защемления дверцей; заменён кабель и изображение восстановлено",
+        "extraReason": null
+      },
+      "reference": {
+        "primaryPath": [
+          null,
+          null,
+          null,
+          null
+        ],
+        "engineerPath": [
+          null,
+          null,
+          null,
+          null
+        ],
+        "engineerOrigin": "none",
+        "engineerBranchStatus": "none"
+      },
+      "review": {
+        "status": "synthetic_only",
+        "disposition": "RITM_AS_INC",
+        "failureState": "FAILURE",
+        "analyticalType": "INC",
+        "expectedStatus": "READY",
+        "proposedPath": [
+          "СВР",
+          "Кабель камеры",
+          "Обрыв кабеля",
+          "Механическое воздействие"
+        ],
+        "applyReady": true,
+        "levelEvidence": {
+          "equipment": "Указана система СВР",
+          "element": "Диагностирован кабель камеры",
+          "failure": "Подтверждён обрыв кабеля",
+          "cause": "Обрыв вызван защемлением дверцей"
+        },
+        "evidenceGrade": "sufficient",
+        "reason": "Полная разрешённая ветка с отдельным основанием для каждого уровня"
+      },
+      "observations": {
+        "reported": "Камера отключается после вибрации",
+        "diagnosed": "Обрыв кабеля из-за защемления дверцей",
+        "performed": "Кабель заменён",
+        "outcome": "Изображение восстановлено"
+      }
+    },
+    {
+      "id": "SYN-INC-HYPOTHESIS-01",
+      "partition": "holdout",
+      "incidentGroup": "G-HYPOTHESIS",
+      "requestType": "INC",
+      "population": "mounted",
+      "source": {
+        "shortDescription": "Отказ питания СВР",
+        "description": "Камера периодически отключается",
+        "closureNote": "Блок питания заменён. Возможно старение, результатов исследования причины нет",
+        "extraReason": null
+      },
+      "reference": {
+        "primaryPath": [
+          null,
+          null,
+          null,
+          null
+        ],
+        "engineerPath": [
+          null,
+          null,
+          null,
+          null
+        ],
+        "engineerOrigin": "none",
+        "engineerBranchStatus": "none"
+      },
+      "review": {
+        "status": "synthetic_only",
+        "disposition": "REVIEW",
+        "failureState": "UNKNOWN",
+        "analyticalType": "INC",
+        "expectedStatus": "REVIEW",
+        "proposedPath": [
+          null,
+          null,
+          null,
+          null
+        ],
+        "applyReady": false,
+        "levelEvidence": {},
+        "evidenceGrade": "disputed",
+        "reason": "Гипотеза об износе и замена не доказывают механизм"
+      },
+      "observations": {
+        "reported": "Камера периодически отключается",
+        "diagnosed": "Причина не подтверждена; старение — гипотеза",
+        "performed": "Блок питания заменён",
+        "outcome": null
+      }
+    },
+    {
+      "id": "SYN-INC-HISTORIC-01",
+      "partition": "holdout",
+      "incidentGroup": "G-HISTORIC",
+      "requestType": "INC",
+      "population": "mounted",
+      "source": {
+        "shortDescription": "Потеря изображения на резервной линии СВР",
+        "description": "Ранее был обрыв кабеля запасного канала",
+        "closureNote": "Текущая линия проверена и исправна. Старый обрыв не связан с текущей жалобой",
+        "extraReason": null
+      },
+      "reference": {
+        "primaryPath": [
+          null,
+          null,
+          null,
+          null
+        ],
+        "engineerPath": [
+          null,
+          null,
+          null,
+          null
+        ],
+        "engineerOrigin": "none",
+        "engineerBranchStatus": "none"
+      },
+      "review": {
+        "status": "synthetic_only",
+        "disposition": "REVIEW",
+        "failureState": "UNKNOWN",
+        "analyticalType": "INC",
+        "expectedStatus": "REVIEW",
+        "proposedPath": [
+          null,
+          null,
+          null,
+          null
+        ],
+        "applyReady": false,
+        "levelEvidence": {},
+        "evidenceGrade": "insufficient",
+        "reason": "История, отрицание и отдельный резервный объект не равны текущему отказу"
+      },
+      "observations": {
+        "reported": "Текущая линия якобы не работает",
+        "diagnosed": "Текущая линия исправна; обрыв относится к прошлому",
+        "performed": null,
+        "outcome": "Текущий отказ не доказан"
+      }
+    },
+    {
+      "id": "SYN-STATIONARY-02",
+      "partition": "holdout",
+      "incidentGroup": "G-STATIONARY-B",
+      "requestType": "INC",
+      "population": "stationary",
+      "source": {
+        "shortDescription": "Станция связи даёт ошибки",
+        "description": "Наблюдаются краткие потери связи станции",
+        "closureNote": "Сервис восстановлен без протокола диагностики",
+        "extraReason": null
+      },
+      "reference": {
+        "primaryPath": [
+          null,
+          null,
+          null,
+          null
+        ],
+        "engineerPath": [
+          null,
+          null,
+          null,
+          null
+        ],
+        "engineerOrigin": "none",
+        "engineerBranchStatus": "none"
+      },
+      "review": {
+        "status": "requires_independent_review",
+        "disposition": "REVIEW",
+        "failureState": "UNKNOWN",
+        "analyticalType": "INC",
+        "expectedStatus": "REVIEW",
+        "proposedPath": [
+          null,
+          null,
+          null,
+          null
+        ],
+        "applyReady": false,
+        "levelEvidence": {},
+        "evidenceGrade": "insufficient",
+        "reason": "Нужно самостоятельное техническое заключение по стационарному оборудованию"
+      },
+      "observations": {
+        "reported": "Кратковременные ошибки станции",
+        "diagnosed": null,
+        "performed": null,
+        "outcome": "Сервис восстановлен без протокола диагностики"
+      }
+    }
+  ]
+}

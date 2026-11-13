@@ -1,0 +1,61 @@
+'use strict';
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const vm = require('node:vm');
+const box = {};
+vm.runInNewContext(fs.readFileSync('src/js/modules/reclassification/facts_v4.js','utf8'),box);
+const api = box.ReclassifierTechnicalFactsV4;
+const extract = row => JSON.parse(JSON.stringify(api.extract(row)));
+const one = (text, field='closureNote') => extract({[field]:text}).facts[0];
+assert.equal(one('Нет изображения', 'description').kind,'symptoms');
+assert.equal(one('Нет изображения', 'description').assertion,'reported');
+assert.equal(one('Обрыв кабеля не подтверждён').assertion,'negated');
+assert.equal(one('Дефектов нет').assertion,'negated');
+assert.equal(one('Возможно перегрев камеры').assertion,'hypothesis');
+assert.equal(one('Не исключён обрыв кабеля').assertion,'hypothesis');
+assert.equal(one('Если заменить блок питания, связь восстановится').assertion,'hypothesis');
+assert.equal(one('Требуется заменить блок питания').assertion,'planned');
+assert.equal(one('Блок питания заменили').kind,'action');
+assert.equal(one('Блок питания заменили').assertion,'stated');
+assert.equal(one('Связь не восстановлена').kind,'result');
+assert.equal(one('Связь не восстановлена').assertion,'negated');
+assert.equal(one('Отказ не подтверждён').kind,'diagnosis');
+assert.equal(one('ОК').kind,'unknown');
+assert.equal(one('Неработающий видеокабель').mentions.length,0);
+const raw = '  Симптомы: нет изображения.\nДиагностика: обнаружен обрыв кабеля; Действие: заменили кабель. Результат: связь восстановлена.';
+const row = {description:raw,closureNote:'10:35 сначала проверили камеру; затем заменили БП; после этого связь восстановлена.',
+  Наим1:'Секретный эталон', equipment:'Не использовать', extraReason:null};
+const before = JSON.stringify(row), result = extract(row);
+assert.deepEqual(result.facts.slice(0,4).map(x=>x.kind),['symptoms','diagnosis','action','result']);
+for(const fact of result.facts) {
+  assert.equal(row[fact.field].slice(fact.start,fact.end),fact.text);
+  assert.equal(fact.independentlyVerified,false);
+  for(const mention of fact.mentions) assert.equal(row[fact.field].slice(mention.start,mention.end),mention.text);
+  for(const marker of fact.temporalMarkers) assert.equal(row[fact.field].slice(marker.start,marker.end),marker.text);
+}
+assert.equal(JSON.stringify(row),before);
+assert.equal(JSON.stringify(result).includes('Секретный'),false);
+assert.equal(result.chronology.crossFieldOrderKnown,false);
+assert.equal(result.readyForClassification,false);
+assert(result.facts.some(f=>f.temporalMarkers.some(m=>m.text==='10:35')));
+assert.equal(extract({description:'Камера не работает, но коммутатор исправен.'}).facts.length,2);
+assert.equal(extract({description:'Возможно обрыв; обнаружен дефект.'}).facts[1].assertion,'stated');
+assert.equal(extract({description:42}).warnings[0].code,'NON_TEXT_FIELD');
+assert.equal(extract({}).facts.length,0);
+assert.deepEqual(extract(row),result);
+const frozen = api.extract({description:'Нет связи'});
+assert(Object.isFrozen(frozen.facts[0].mentions));
+assert.throws(()=>{frozen.facts.push({});},{name:'TypeError'});
+const guarded = {description:'Нет связи'};
+Object.defineProperty(guarded,'equipment',{get(){throw Error('label leakage');}});
+assert.equal(extract(guarded).facts.length,1);
+console.log('V4-05: symptoms, roles, assertions, source spans, chronology, isolation and immutability PASS');
+
+assert.deepEqual(extract({closureNote:'Заменили БП, связь восстановлена'}).facts.map(f=>f.kind),['action','result']);
+assert.equal(extract({closureNote:'Если заменили БП, связь восстановлена'}).facts[0].assertion,'hypothesis');
+assert.equal(extract({closureNote:'Возможно обрыв кабеля, выявлен дефект'}).facts[0].assertion,'hypothesis');
+
+assert.equal(one('Блок питания не заменяли').assertion,'negated');
+assert.equal(one('Нет неисправностей').assertion,'negated');
+assert.equal(one('Работы по заявке', 'description').kind,'unknown');
+assert.equal(one('Неисправность устранена').kind,'result');

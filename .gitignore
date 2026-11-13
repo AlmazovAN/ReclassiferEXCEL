@@ -1,0 +1,27 @@
+# Local environment and build
+__pycache__/
+*.py[cod]
+.venv/
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+dist/
+local_data/
+*.tmp
+~$*
+
+# Never commit corporate data
+*.xlsx
+*.xlsm
+*.xls
+*.xlsb
+*.csv
+*.db
+*.sqlite
+*.sqlite3
+Catalogs/
+ITSM/
+MB/
+RCA/
+*.log
