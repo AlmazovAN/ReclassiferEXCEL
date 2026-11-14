@@ -18,17 +18,15 @@ function rcaPlanControls(item, library, commit) {
     return panel;
   }
   const plan = item.plan;
-  const details = rcaElement('details');
-  details.open = true;
-  details.append(rcaElement('summary',plan.template.title+' · до '+plan.end));
+  panel.append(rcaElement('h3', plan.template.title), rcaElement('p', 'Плановый период · ' + plan.start + ' — ' + plan.end));
   const update = async (steps,start=plan.start) => save(rebuildRcaPlan({...plan,start,steps}));
   const perform = async task => {
     try { await task(); } catch(error) { window.alert(error.message); }
   };
-  details.append(rcaButton('Изменить начало',()=>rcaEditor('Начало плана',[
+  panel.append(rcaButton('Изменить начало',()=>rcaEditor('Начало плана',[
     ['Дата начала','start',plan.start,{type:'date',required:true}]
   ],values=>update(plan.steps,values.start))));
-  if (validRcaDay(item.dueDate)) details.append(rcaButton('Использовать дату мероприятия как старт плана',
+  if (validRcaDay(item.dueDate)) panel.append(rcaButton('Начать план со срока мероприятия',
     ()=>void perform(()=>update(plan.steps,item.dueDate))));
   const table = rcaElement('table');
   const head = rcaElement('thead');
@@ -80,8 +78,10 @@ function rcaPlanControls(item, library, commit) {
   });
   table.append(head,body);
   const scroll = rcaElement('div','','rca-plan-table');
+  scroll.tabIndex = 0;
+  scroll.setAttribute('role', 'region');
+  scroll.setAttribute('aria-label', 'Шаги типового плана');
   scroll.append(table);
-  details.append(scroll,rcaButton('Добавить шаг',()=>edit(plan.steps.length,true)));
-  panel.append(details);
+  panel.append(scroll,rcaButton('Добавить шаг',()=>edit(plan.steps.length,true)));
   return panel;
 }

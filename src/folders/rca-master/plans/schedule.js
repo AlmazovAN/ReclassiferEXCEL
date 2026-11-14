@@ -1,10 +1,11 @@
 function validateRcaPlanLibrary(library) {
   if (library?.schemaVersion !== 1 || !/^[a-f0-9]{64}$/.test(library.sourceHash) ||
       typeof library.fileName !== 'string' || !Array.isArray(library.templates) ||
-      library.templates.length !== 9 || new Set(library.templates.map(item=>item.id)).size !== 9 ||
-      library.templates.some(item=>!item.title || !Array.isArray(item.steps) || !item.steps.length ||
-        item.steps.some(step=>!step.id || !step.title || !Number.isSafeInteger(step.durationDays) || step.durationDays < 0)) ||
-      library.templates.reduce((sum,item)=>sum+item.steps.length,0) !== 74) throw new Error('Некорректная библиотека типовых планов.');
+      !library.templates.length || new Set(library.templates.map(item=>item?.id)).size !== library.templates.length ||
+      library.templates.some(item=>!item?.id || !item.title || !Array.isArray(item.steps) || !item.steps.length ||
+        item.steps.some(step=>!step?.id || !step.title || !Number.isSafeInteger(step.durationDays) || step.durationDays < 0))) {
+    throw new Error('Некорректная библиотека типовых планов.');
+  }
   return library;
 }
 

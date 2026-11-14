@@ -1,4 +1,4 @@
-function renderRcaTree(record, commit, viewport, targetNode, dictionaries) {
+function renderRcaTree(record, commit, viewport, targetNode, dictionaries, evidenceEditor, openLinks) {
   const pane = rcaElement('div');
   const tools = rcaElement('div', '', 'rca-tree-tools');
   const scroll = rcaElement('div', '', 'rca-tree-scroll');
@@ -78,7 +78,7 @@ function renderRcaTree(record, commit, viewport, targetNode, dictionaries) {
             dialog.addEventListener('close', () => editRcaEvidence(record, mutate => commit(next => {
               change(next);
               mutate(next);
-            }), dictionaries, draft, node.id, desired), {once:true});
+            }), dictionaries, draft, node.id, desired, evidenceEditor), {once:true});
             return;
           }
           if (desired === 'hypothesis' && assessment !== 'unknown') {
@@ -96,6 +96,7 @@ function renderRcaTree(record, commit, viewport, targetNode, dictionaries) {
         const flag = rcaButton('К', async () => {
           try {
             await commit(next => toggleRcaActionFlag(next, node.id, 'flagK'));
+            if (!node.flagK) openLinks('actions', node.id);
           } catch (error) { window.alert(error.message); }
         });
         flag.setAttribute('aria-label', 'Предполагаемая коренная причина');
@@ -105,7 +106,10 @@ function renderRcaTree(record, commit, viewport, targetNode, dictionaries) {
           ['М', 'actions', 'Требуется мероприятие'], ['Д', 'evidence', 'Требуется доказательство']
         ]) {
           const button = rcaButton(label, async () => {
-            try { await commit(next => toggleRcaLinkedFlag(next, key, node.id)); }
+            try {
+              await commit(next => toggleRcaLinkedFlag(next, key, node.id));
+              if (!node[RCA_LINKED_FLAGS[key].flag]) openLinks(key, node.id);
+            }
             catch (error) { window.alert(error.message); }
           });
           button.setAttribute('aria-label', description);
@@ -120,6 +124,12 @@ function renderRcaTree(record, commit, viewport, targetNode, dictionaries) {
           card.append(rcaElement('small', 'Коренная причина требует подтверждения.'));
         }
         if (node.flagK || node.flagM) card.append(rcaElement('small', 'Мероприятия: ' + rcaActionCoverage(record, node.id)));
+        if (record.evidence.some(item => item.nodeId === node.id && item.status !== 'cancelled')) {
+          controls.append(rcaButton('К доказательствам', () => openLinks('evidence', node.id)));
+        }
+        if (record.actions.some(item => item.nodeIds.includes(node.id) && item.status !== 'cancelled')) {
+          controls.append(rcaButton('К мероприятиям', () => openLinks('actions', node.id)));
+        }
       }
       card.append(controls);
       column.append(card);

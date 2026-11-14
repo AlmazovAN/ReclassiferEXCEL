@@ -550,6 +550,7 @@
   }
 
   document.getElementById('rca-back')?.addEventListener('click', async () => {
+    if (rcaUi?.closeDetail() === false) return;
     if (rca && !rca.canLeave()) {
       const saved = await rca.flushPending();
       if (!saved) return;

@@ -9,10 +9,10 @@ UI_ASSETS = {
     "STYLE": ("folders.css", "rca-master.css"),
     "SCRIPT": (
         "journal/journal.js", "workspace/selection.js", "rca-master/config.js",
-        "rca-master/validation.js", "rca-master/registry.js", "rca-master/registry-source.js", "rca-master/repository-json.js",
+        "rca-master/attachment-store.js", "rca-master/attachment-gallery.js", "rca-master/validation.js", "rca-master/registry.js", "rca-master/registry-source.js", "rca-master/repository-json.js",
         "rca-master/state.js", "rca-master/tree-model.js", "rca-master/ui.js",
         "rca-master/passport.js", "rca-master/reference-adapter.js", "rca-master/evidence.js", "rca-master/actions.js",
-        "rca-master/dictionaries.js", "rca-master/archive-json.js", "rca-master/dictionaries-modal.js",
+        "rca-master/dictionaries.js", "rca-master/archive-json.js", "rca-master/archive-zip.js", "rca-master/dictionaries-modal.js",
         "rca-master/tree-view.js", "rca-master/report.js", "rca-master/analytics/index-contract.js",
         "rca-master/analytics/query.js", "rca-master/plans/schedule.js", "rca-master/plans/plan-view.js", "folders.js",
     ),
@@ -48,12 +48,12 @@ def main() -> Path:
     worker = "/* js-sha256 0.11.1 · MIT\n" + license_text + "\n*/\n" + worker
     html = html.replace("/*__FOLDERS_WORKER__*/", json.dumps(worker, ensure_ascii=True).replace("<", "\\u003c"))
 
-    output = ROOT / "dist" / "Reclassifier_Folders.html"
+    output = ROOT / "dist" / "ReclassifierEXCEL.html"
     output.parent.mkdir(exist_ok=True)
     output.write_text(html, encoding="utf-8")
-    (output.parent / "ReclassifierEXCEL.html").write_text(html, encoding="utf-8")
     for filename in ("Start_Reclassifier.cmd", "serve_folders.py"):
         shutil.copyfile(Path(__file__).with_name(filename), output.parent / filename)
+    output.with_name("Reclassifier_Folders.html").unlink(missing_ok=True)
     print(output)
     return output
 

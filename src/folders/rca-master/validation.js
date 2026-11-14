@@ -66,6 +66,9 @@ function validateRcaProblem(record) {
       throw new Error('Для выполненного мероприятия укажите содержание и результат.');
     }
   }
+  for (const item of record.attachments) {
+    if (item.kind === 'local_file') validateRcaAttachment(record, item);
+  }
   return record;
 }
 

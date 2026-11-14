@@ -14,29 +14,35 @@ function createRcaRepository({handle, mode = 'none', files = []} = {}) {
     return parent;
   }
 
-  async function read(path, name) {
+  async function readFile(path, name) {
     if (mode === 'import') {
       const file = imported.get([...path, name].join('/'));
       if (!file) throw new DOMException('Файл RCA отсутствует.', 'NotFoundError');
-      return file.text();
+      return file;
     }
     const parent = await directory(path);
-    return (await (await parent.getFileHandle(name)).getFile()).text();
+    return (await parent.getFileHandle(name)).getFile();
   }
 
-  async function writeNew(path, name, text) {
+  async function read(path, name) {
+    return (await readFile(path, name)).text();
+  }
+
+  async function writeNew(path, name, content) {
     const parent = await directory(path, true);
     const file = await parent.getFileHandle(name, {create: true});
     const stream = await file.createWritable({mode: 'exclusive'});
     try {
       if ((await file.getFile()).size) throw new Error('Конфликт: файл RCA уже опубликован.');
-      await stream.write(text);
+      await stream.write(content);
       await stream.close();
     } catch (error) {
       await stream.abort().catch(() => {});
       throw error;
     }
-    if (await read(path, name) !== text) throw new Error('Записанный файл RCA не прошёл проверку.');
+    if (typeof content === 'string' && await read(path, name) !== content) {
+      throw new Error('Записанный файл RCA не прошёл проверку.');
+    }
   }
 
   async function namesAt(path) {
@@ -127,7 +133,7 @@ function createRcaRepository({handle, mode = 'none', files = []} = {}) {
     await writeNew(['indexes'], name, JSON.stringify(index));
   }
 
-  function saveBatch(changes, dictionaryChange) {
+  function saveBatch(changes, dictionaryChange, photoFiles) {
     const batch = structuredClone(changes);
     const dictionary = structuredClone(dictionaryChange);
     const save = async () => {
@@ -159,6 +165,26 @@ function createRcaRepository({handle, mode = 'none', files = []} = {}) {
         rows.set(id, {id, prbNumber, title, status, equipment, location, project, updatedAt, revision, file, hash: checksum});
       }
       const nextDictionaries = validateRcaDictionaries(dictionary?.items ?? dictionaries);
+      if (photoFiles) {
+        for (const {record} of batch) {
+          for (const item of record.attachments.filter(item => item.kind === 'local_file')) {
+            const blob = photoFiles.get(item.path);
+            if (!blob || blob.size !== item.size || await hashRcaAttachment(blob) !== item.hash) {
+              throw new Error('Оригинал отсутствует или повреждён: ' + item.name);
+            }
+            await validateRcaImage(blob, item.path, item.mime);
+            try {
+              await attachments.loadBinary(record, item.id);
+              continue;
+            } catch (error) {
+              if (error.name !== 'NotFoundError') throw error;
+            }
+            const path = rcaAttachmentPath(record.problem.id, item.id, item.mime);
+            await writeNew(path.slice(0, -1), path.at(-1), blob);
+            await attachments.loadBinary(record, item.id);
+          }
+        }
+      }
       for (const {id, file, text} of staged) await writeNew(['problems', id], file, text);
       const generation = names.length ? Number(RCA_INDEX_NAME.exec(names[0])[1]) + 1 : 1;
       if (generation > 999999999999) throw new Error('Исчерпаны номера поколений RCA.');
@@ -175,8 +201,27 @@ function createRcaRepository({handle, mode = 'none', files = []} = {}) {
     return result;
   }
 
+  const attachments = createRcaAttachmentStore({
+    readFile, writeNew, writable: async () => (await getWriteCapability()).writable
+  });
   return {
     getWriteCapability, recoverLastValid, loadProblem, saveBatch,
+    attachments: {
+      loadBinary: attachments.loadBinary,
+      listAttachments: attachments.listAttachments,
+      async add(record, expectedRevision, photo) {
+        const snapshot = structuredClone(record);
+        const item = await attachments.stageFile(snapshot, photo);
+        snapshot.attachments.push(item);
+        return (await saveBatch([{record: snapshot, expectedRevision}]))[0];
+      },
+      async unlinkAttachment(record, expectedRevision, id) {
+        const item = record.attachments.find(entry => entry.id === id && entry.kind === 'local_file');
+        if (!item) throw new Error('Фотография не связана с расследованием.');
+        const snapshot = {...record, attachments: record.attachments.filter(entry => entry !== item)};
+        return (await saveBatch([{record: snapshot, expectedRevision}]))[0];
+      }
+    },
     officialRegistry: createOfficialRegistryStore({
       names: namesAt, read, write: writeNew, hash, writable: async () => (await getWriteCapability()).writable
     }),

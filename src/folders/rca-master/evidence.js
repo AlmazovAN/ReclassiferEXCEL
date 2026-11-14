@@ -20,7 +20,7 @@ function recordRcaEvidenceEvent(record, nodeId, itemId, operation, before) {
     before, after:rcaEvidenceState(record, nodeId)});
 }
 
-function editRcaEvidence(record, commit, dictionaries, item, nodeId, verdict) {
+function editRcaEvidence(record, commit, dictionaries, item, nodeId, verdict, editor = rcaEditor) {
     const choices = Object.fromEntries([['', 'Выберите причину'], ...record.rcaNodes.map(node => [node.id, node.title])]);
     const fields = item?.source === 'auto_flag_d' || nodeId ? [] : [
       ['Причина RCA', 'nodeId', item?.nodeId, {choices, required: true}]
@@ -45,28 +45,36 @@ function editRcaEvidence(record, commit, dictionaries, item, nodeId, verdict) {
       ['Материалы — имена файлов или ссылки', 'materials', item?.materials, {long: true}]
     );
     const linked = record.rcaNodes.find(node => node.id === (nodeId ?? item?.nodeId));
-    rcaEditor(linked ? 'Проверка: ' + linked.title : 'Доказательство', fields, values => commit(next => {
+    editor(linked ? 'Проверка: ' + linked.title : 'Новое доказательство', fields, values => commit(next => {
       updateRcaLinkedItem(next, 'evidence', item, {...values, nodeId:nodeId ?? values.nodeId ?? item?.nodeId});
-    }));
+    }), item?.id);
 }
 
-function renderRcaEvidence(record, commit, navigate, dictionaries) {
+function renderRcaEvidence(record, commit, navigate, dictionaries, editor) {
   const panel = rcaElement('section', '', 'card');
-  const edit = item => editRcaEvidence(record, commit, dictionaries, item);
+  const edit = item => editRcaEvidence(record, commit, dictionaries, item, undefined, undefined, editor);
   panel.append(rcaElement('h2', 'Доказательства'));
-  const add = rcaButton('+ Доказательство', () => edit());
+  const add = rcaButton('+ Доказательство', () => edit(), 'primary');
   add.disabled = !record.rcaNodes.length;
   panel.append(add);
   if (!record.rcaNodes.length) panel.append(rcaElement('p', 'Добавьте причину в дереве RCA.'));
+  else if (!record.evidence.length) panel.append(rcaElement('p', 'Доказательств пока нет.'));
   for (const item of record.evidence) {
     const row = rcaElement('article', '', 'rca-linked-row');
     const node = record.rcaNodes.find(node => node.id === item.nodeId);
-    row.append(rcaElement('strong', node.title),
+    const info = rcaElement('div', '', 'rca-linked-info');
+    info.append(rcaElement('strong', node.title),
       rcaElement('p', item.method || 'Способ проверки не выбран'),
-      rcaElement('p', RCA_VERDICTS[item.verdict] ?? RCA_VERDICTS.unknown),
-      rcaButton('Перейти к причине', () => navigate(node.id)),
-      rcaButton('Редактировать', () => edit(item)),
-      rcaButton('Удалить', () => void deleteRcaLinkedItem(commit, 'evidence', item)));
+      rcaElement('p', RCA_VERDICTS[item.verdict] ?? RCA_VERDICTS.unknown, 'rca-row-status'),
+      rcaElement('small', item.dueDate ? 'Срок · ' + item.dueDate : 'Без срока'));
+    const photos = listRcaAttachments(record, 'evidence', item.id).length;
+    if (photos) info.append(rcaElement('small', 'Фото · ' + photos));
+    const controls = rcaElement('div', '', 'rca-linked-controls');
+    controls.append(
+      rcaButton('Открыть', () => edit(item), 'rca-open-row'),
+      rcaButton('К причине', () => navigate(node.id), 'rca-quiet'),
+      rcaRowActions(node.title, () => void deleteRcaLinkedItem(commit, 'evidence', item)));
+    row.append(info, controls);
     panel.append(row);
   }
   return panel;

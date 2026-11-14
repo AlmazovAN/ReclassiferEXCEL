@@ -30,8 +30,24 @@ function validateRcaActionEdit(item) {
   }
 }
 
-function renderRcaActions(record, commit, navigate, library) {
-  const panel = rcaElement('div', '', 'rca-passport');
+function editRcaAction(record, commit, editor, sector, item) {
+  editor(item?.text || (item ? 'Черновик мероприятия' : 'Новое мероприятие'), [
+    ['Причины RCA', 'nodeIds', item?.nodeIds ?? [], {
+      multiple: true, choices: Object.fromEntries(record.rcaNodes.map(node => [node.id, node.title]))
+    }],
+    ['Сектор', 'sector', sector, {choices: RCA_SECTORS}],
+    ['Название мероприятия', 'text', item?.text, {long: true}],
+    ['Вид', 'kind', item?.kind ?? 'preventive', {choices: {corrective: 'Корректирующее', preventive: 'Предупредительное'}}],
+    ['Номер ЗНО', 'zno', item?.zno, {hint:'Для корректирующего мероприятия при планировании и выполнении'}],
+    ['Ответственный', 'assignee', item?.assignee],
+    ['Срок', 'dueDate', item?.dueDate, {type: 'date'}],
+    ['Статус', 'status', item?.status ?? 'draft', {choices: RCA_ACTION_STATUSES}],
+    ['Отчёт о выполнении', 'result', item?.result, {long: true}]
+  ], values => commit(next => updateRcaLinkedItem(next, 'actions', item, values)), item?.id);
+}
+
+function renderRcaActions(record, commit, navigate, editor) {
+  const panel = rcaElement('div', '', 'rca-action-list');
   const coverage = rcaElement('section', '', 'card');
   coverage.append(rcaElement('h2', 'Причины, требующие мероприятий'));
   const tracked = record.rcaNodes.filter(node => (node.flagK || node.flagM) &&
@@ -44,36 +60,33 @@ function renderRcaActions(record, commit, navigate, library) {
   }
   panel.append(coverage);
 
-  function edit(sector, item) {
-    rcaEditor('Мероприятие', [
-      ['Причины RCA', 'nodeIds', item?.nodeIds ?? [], {
-        multiple: true, choices: Object.fromEntries(record.rcaNodes.map(node => [node.id, node.title]))
-      }],
-      ['Сектор', 'sector', sector, {choices: RCA_SECTORS}],
-      ['Название мероприятия', 'text', item?.text, {long: true}],
-      ['Вид', 'kind', item?.kind ?? 'preventive', {choices: {corrective: 'Корректирующее', preventive: 'Предупредительное'}}],
-      ['Номер ЗНО', 'zno', item?.zno, {hint:'Для корректирующего мероприятия при планировании и выполнении'}],
-      ['Ответственный', 'assignee', item?.assignee],
-      ['Срок', 'dueDate', item?.dueDate, {type: 'date'}],
-      ['Статус', 'status', item?.status ?? 'draft', {choices: RCA_ACTION_STATUSES}],
-      ['Отчёт о выполнении', 'result', item?.result, {long: true}]
-    ], values => commit(next => updateRcaLinkedItem(next, 'actions', item, values)));
-  }
+  const edit = (sector, item) => editRcaAction(record, commit, editor, sector, item);
 
   for (const [sector, title] of Object.entries(RCA_SECTORS)) {
-    const section = rcaElement('section', '', 'card');
-    section.append(rcaElement('h2', title));
-    for (const item of record.actions.filter(item => item.sector === sector)) {
+    const items = record.actions.filter(item => item.sector === sector);
+    const section = rcaElement('details', '', 'card');
+    section.open = items.length > 0;
+    section.append(rcaElement('summary', title + ' (' + items.length + ')'));
+    for (const item of items) {
       const row = rcaElement('article', '', 'rca-linked-row');
-      row.append(rcaElement('strong', item.text || 'Черновик мероприятия'),
-        rcaElement('p', RCA_ACTION_STATUSES[item.status] ?? item.status));
+      const info = rcaElement('div', '', 'rca-linked-info');
+      info.append(rcaElement('strong', item.text || 'Черновик мероприятия'),
+        rcaElement('p', RCA_ACTION_STATUSES[item.status] ?? item.status, 'rca-row-status'),
+        rcaElement('small', item.dueDate ? 'Срок · ' + item.dueDate : 'Без срока'));
+      if (item.plan) info.append(rcaElement('p', item.plan.template.title + ' · до ' + item.plan.end));
+      const photos = listRcaAttachments(record, 'action', item.id).length;
+      if (photos) info.append(rcaElement('small', 'Фото · ' + photos));
+      const controls = rcaElement('div', '', 'rca-linked-controls');
+      controls.append(rcaButton('Открыть', () => edit(sector, item), 'rca-open-row'));
       for (const id of item.nodeIds) {
         const node = record.rcaNodes.find(node => node.id === id);
-        row.append(rcaButton(node.title, () => navigate(id)));
+        const link = rcaButton(item.nodeIds.length === 1 ? 'К причине' : node.title, () => navigate(id), 'rca-quiet');
+        link.title = node.title;
+        controls.append(link);
       }
-      row.append(rcaButton('Редактировать', () => edit(sector, item)),
-        rcaButton('Удалить', () => void deleteRcaLinkedItem(commit, 'actions', item)));
-      row.append(rcaPlanControls(item,library,commit));
+      controls.append(rcaRowActions(item.text || 'Черновик мероприятия',
+        () => void deleteRcaLinkedItem(commit, 'actions', item)));
+      row.append(info, controls);
       section.append(row);
     }
     section.append(rcaButton('+ Мероприятие', () => edit(sector)));

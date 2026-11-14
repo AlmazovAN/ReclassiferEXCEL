@@ -50,7 +50,8 @@ function toggleRcaLinkedFlag(record, key, nodeId) {
   if (node[flag] && auto) {
     const populated = auto.method || auto.methodDetail || auto.task || auto.dueDate || auto.expected || auto.actual ||
       auto.materials || auto.verdict !== 'unknown';
-    if (auto.revision !== 1 || auto.status !== 'draft' || populated) {
+    if (auto.revision !== 1 || auto.status !== 'draft' || populated ||
+        listRcaAttachments(record, 'evidence', auto.id).length) {
       throw new Error('Карточка содержит данные. Сначала явно удалите её или отвяжите от причины.');
     }
     record[key] = items.filter(item => item.id !== auto.id);
@@ -74,7 +75,8 @@ function toggleRcaActionFlag(record, nodeId, flag) {
   if (!node.flagK && !node.flagM) {
     record.actions = record.actions.filter(item => item.source !== 'auto_flag_m' || item.originNodeId !== nodeId ||
       item.status !== 'draft' || item.revision !== 1 || item.text || item.result || item.assignee || item.dueDate ||
-      item.zno || item.plan || item.sector !== 'technical' || item.nodeIds.length !== 1);
+      item.zno || item.plan || item.sector !== 'technical' || item.nodeIds.length !== 1 ||
+      listRcaAttachments(record, 'action', item.id).length);
   }
 }
 
@@ -125,6 +127,8 @@ async function deleteRcaLinkedItem(commit, key, item) {
     await commit(next => {
       const before = key === 'evidence' ? rcaEvidenceState(next, item.nodeId) : null;
       next[key] = next[key].filter(entry => entry.id !== item.id);
+      const photos = new Set(listRcaAttachments(next, key === 'actions' ? 'action' : 'evidence', item.id));
+      next.attachments = next.attachments.filter(entry => !photos.has(entry));
       if (key === 'evidence') recordRcaEvidenceEvent(next, item.nodeId, item.id, 'evidence-deleted', before);
       clearRcaLinkedFlag(next, key, item);
     });

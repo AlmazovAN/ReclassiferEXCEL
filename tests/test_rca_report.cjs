@@ -47,6 +47,11 @@ test('RCA prints only the selected problem as text and leaves its data intact', 
   selected.evidence.push({id: 'test', nodeId: child.id, method: 'Лаборатория', verdict: 'confirmed'});
   selected.actions.push({id: 'action', nodeIds: [child.id], text: 'Заменить клемму',
     assignee: 'Инженер', dueDate: '2026-11-30', status: 'planned', sector: 'technical'});
+  const photoId = crypto.randomUUID();
+  selected.attachments.push({id:photoId, problemId:selected.problem.id, kind:'local_file',
+    ownerType:'evidence', ownerId:'test', mime:'image/jpeg', size:20, hash:'a'.repeat(64),
+    path:'RCA/attachments/' + selected.problem.id + '/' + photoId + '.jpg',
+    name:'Осмотр.jpg', description:'След на клемме', createdAt:new Date().toISOString()});
   const before = JSON.stringify(selected);
   context.printRcaReport(selected);
   for (const value of ['PRB42', selected.problem.title, 'Паспорт', 'Обстоятельства отказа', 'Нет сигнала',
@@ -56,6 +61,9 @@ test('RCA prints only the selected problem as text and leaves its data intact', 
   }
   assert.doesNotMatch(output, /Утверждено|Другая проблема|PRB43/);
   assert.ok(!tags.includes('img'));
+  assert.equal(output.match(/Осмотр\.jpg/g)?.length, 1);
+  assert.match(output, /Фото · Осмотр\.jpg · След на клемме/);
+  assert.doesNotMatch(output, /RCA\/attachments/);
   assert.equal(JSON.stringify(selected), before);
   assert.equal(body.report, undefined);
   assert.equal(body.classList.has('rca-printing'), false);

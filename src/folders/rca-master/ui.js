@@ -12,6 +12,28 @@ function rcaButton(label, click, className = 'secondary') {
   return button;
 }
 
+function rcaRowActions(title, remove) {
+  const menu = rcaElement('details', '', 'rca-row-menu');
+  const trigger = rcaElement('summary', '⋯');
+  trigger.setAttribute('aria-label', 'Действия: ' + title);
+  const button = rcaButton('Удалить', () => {
+    menu.open = false;
+    trigger.focus();
+    remove();
+  }, 'rca-danger');
+  menu.append(trigger, button);
+  menu.addEventListener('focusout', event => {
+    if (!menu.contains(event.relatedTarget)) menu.open = false;
+  });
+  menu.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && menu.open) {
+      menu.open = false;
+      trigger.focus();
+    }
+  });
+  return menu;
+}
+
 function rcaField(form, label, name, value = '', options = {}) {
   const wrapper = rcaElement('label', label);
   const input = rcaElement(options.choices ? 'select' : options.long ? 'textarea' : 'input');
@@ -47,23 +69,27 @@ function rcaField(form, label, name, value = '', options = {}) {
   form.append(wrapper);
 }
 
-function rcaEditor(title, fields, apply, discard) {
-  const dialog = rcaElement('dialog', '', 'rca-dialog');
+function rcaEditor(title, fields, apply, discard, workspace, submitLabel = 'Сохранить') {
+  const dialog = workspace ? null : rcaElement('dialog', '', 'rca-dialog');
   const form = rcaElement('form', '', 'rca-form');
   const error = rcaElement('p', '', 'rca-error');
   error.setAttribute('role', 'alert');
-  form.append(rcaElement('h2', title));
+  const heading = rcaElement('h2', title);
+  form.append(heading);
   for (const [label, name, value, options] of fields) rcaField(form, label, name, value, options);
-  const save = rcaElement('button', 'Сохранить', 'primary');
-  const cancel = rcaButton('Отмена', () => dialog.close());
+  const save = rcaElement('button', submitLabel, 'primary');
+  const cancel = rcaButton(workspace ? 'К списку' : 'Отмена', () => {
+    if (workspace) workspace.close();
+    else dialog.close();
+  });
   form.append(error, save, cancel);
-  dialog.append(form);
-  document.body.append(dialog);
-  dialog.addEventListener('close', () => {
+  dialog?.append(form);
+  if (dialog) document.body.append(dialog);
+  dialog?.addEventListener('close', () => {
     if (form.failed) discard?.();
     dialog.remove();
   }, {once: true});
-  dialog.addEventListener('cancel', event => { if (save.disabled) event.preventDefault(); });
+  dialog?.addEventListener('cancel', event => { if (save.disabled) event.preventDefault(); });
   bindRcaSaveShortcut(form, save);
   form.addEventListener('submit', async event => {
     event.preventDefault();
@@ -76,7 +102,8 @@ function rcaEditor(title, fields, apply, discard) {
       for (const select of form.querySelectorAll('select[multiple]')) values[select.name] = data.getAll(select.name);
       await apply(values, form);
       form.failed = false;
-      dialog.close();
+      if (workspace) workspace.close(true);
+      else dialog.close();
     } catch (failure) {
       form.failed = true;
       error.textContent = failure.message;
@@ -84,7 +111,13 @@ function rcaEditor(title, fields, apply, discard) {
       save.disabled = cancel.disabled = false;
     }
   });
-  dialog.showModal();
+  if (workspace) {
+    heading.tabIndex = -1;
+    form.classList.add('card', 'rca-detail');
+    form.prepend(cancel);
+    workspace.open(form);
+    heading.focus();
+  } else dialog.showModal();
 }
 
 function bindRcaSaveShortcut(form, save) {
@@ -118,6 +151,104 @@ function createRcaUi(state, downloadBlob, calculateItsmMetrics) {
   const viewports = new Map();
   let rows = [];
   let active = null;
+  let detail = null;
+  let detailDirty = false;
+  let detailReturnTab = 0;
+  let planActionId = null;
+  let gallery = null;
+
+  function leaveDetail(saved = false) {
+    if (!detail) return true;
+    if (!saved && busy) return false;
+    const pendingPlan = planActionId && !state.canLeave();
+    if (!saved && (detailDirty || pendingPlan) &&
+        !window.confirm('Выйти без сохранения изменений?')) return false;
+    if (detail.failed || pendingPlan) state.discardDraft();
+    detail = null;
+    gallery?.dispose();
+    gallery = null;
+    detailDirty = false;
+    planActionId = null;
+    return true;
+  }
+
+  function detailEditor(section) {
+    return (heading, fields, apply, ownerId) => rcaEditor(heading, fields, apply, undefined, {
+      open(form) {
+        ++request;
+        detailReturnTab = section;
+        tab = section;
+        detail = form;
+        detailDirty = false;
+        if (ownerId && section === 3) {
+          const openPlan = rcaButton('Открыть типовой план', () => {
+            if (busy || !state.canLeave()) return;
+            planActionId = ownerId;
+            render();
+            content.querySelector('.rca-plan-screen h2')?.focus();
+          });
+          openPlan.classList.add('rca-open-plan');
+          form.querySelector('h2').after(openPlan);
+        }
+        if (ownerId) {
+          const repository = state.getRepository();
+          gallery = createRcaAttachmentGallery({
+            record: active, ownerType: section === 2 ? 'evidence' : 'action', ownerId, repository,
+            canWrite: async () => rows.some(row => row.id === active?.problem.id) &&
+              !local.has(active.problem.id) && (await repository.getWriteCapability()).writable,
+            async mutate(operation, updateGallery) {
+              if (busy || !state.canLeave() || repository !== state.getRepository() || detail !== form) {
+                throw new Error('Завершите текущее сохранение и повторите действие.');
+              }
+              if (local.has(active.problem.id)) throw new Error('Сначала сохраните карточку в рабочей папке.');
+              busy = true;
+              try {
+                await operation(repository.attachments, active, saved => {
+                  updateGallery(saved);
+                  showSaved(saved);
+                });
+              } finally {
+                busy = false;
+              }
+            }
+          });
+        }
+        form.addEventListener('input', () => { detailDirty = true; });
+        form.addEventListener('change', () => { detailDirty = true; });
+        render();
+      },
+      close(saved) {
+        if (!leaveDetail(saved)) return;
+        tab = detailReturnTab;
+        render();
+        content.querySelector('.rca-tabs [aria-pressed=true]')?.focus();
+      }
+    });
+  }
+
+  function openTreeLinks(key, nodeId) {
+    if (busy || !active) return;
+    const record = active;
+    const evidence = key === 'evidence';
+    const items = record[key].filter(item => item.status !== 'cancelled' &&
+      (evidence ? item.nodeId === nodeId : item.nodeIds.includes(nodeId)));
+    const open = item => {
+      if (record !== active) return;
+      if (evidence) editRcaEvidence(record, commit, dictionaries, item, undefined, undefined, detailEditor(2));
+      else editRcaAction(record, commit, detailEditor(3), item.sector, item);
+    };
+    if (items.length === 1) open(items[0]);
+    if (items.length > 1) {
+      const choices = Object.fromEntries([['', 'Выберите запись'], ...items.map((item, index) => [
+        item.id, (index + 1) + '. ' + (evidence ? item.task || item.method || 'Черновик проверки' :
+          item.text || 'Черновик мероприятия')
+      ])]);
+      rcaEditor(evidence ? 'Связанные доказательства' : 'Связанные мероприятия',
+        [['Запись', 'id', '', {choices, required: true}]], ({id}, form) => {
+          form.closest('dialog').addEventListener('close', () => open(items.find(item => item.id === id)), {once: true});
+        }, undefined, undefined, 'Открыть');
+    }
+  }
   let officialRegistry = null;
   let planLibrary = null;
   let planStatus = '';
@@ -189,16 +320,17 @@ function createRcaUi(state, downloadBlob, calculateItsmMetrics) {
       .filter(row => !statusFilter.value || row.official?.itsmStatus === statusFilter.value);
     register.replaceChildren(...filterRcaRegistry(rowsToShow, search.value).map(row => {
       const item = rcaElement('li');
-      const button = rcaButton(row.title, () => {
+      const button = rcaButton('', () => {
         if (!row.unstarted) return void select(row.id);
-        if (busy || !state.canLeave()) return;
+        if (busy || !leaveDetail() || !state.canLeave()) return;
         ++request;
         active = null;
         selectedOfficial = row.prbNumber;
         message.textContent = '';
         render();
       });
-      button.prepend(rcaElement('small', rcaDisplayId(row)));
+      button.append(rcaElement('small', rcaDisplayId(row), 'rca-register-id'),
+        rcaElement('span', row.title, 'rca-register-name'));
       button.append(rcaElement('small', row.unstarted ? 'Расследование не начато' :
         row.official ? 'Расследование ведётся · ' + row.official.itsmStatus :
         row.prbNumber ? 'Официальная запись недоступна' : RCA_STATUSES[row.status] ?? row.status));
@@ -234,20 +366,47 @@ function createRcaUi(state, downloadBlob, calculateItsmMetrics) {
         }, 'primary'));
         return;
       }
-      content.append(rcaElement('p', 'Выберите или создайте проблему'));
+      content.append(rcaElement('p', 'Выберите проблему в реестре или нажмите «Добавить проблему».', 'card rca-empty'));
       return;
     }
     const problem = active.problem;
-    content.append(rcaElement('p', rcaDisplayId(problem) + ' · ' + (RCA_STATUSES[problem.status] ?? problem.status)));
-    content.append(rcaButton('Распечатать отчёт', () => {
+    const toolbar = rcaElement('div', '', 'rca-investigation-bar');
+    const context = rcaElement('div', '', 'rca-investigation-context');
+    context.append(rcaElement('strong', rcaDisplayId(problem)),
+      rcaElement('span', 'Статус PRB · ' + (RCA_STATUSES[problem.status] ?? problem.status)),
+      rcaElement('span', 'Статус ITSM · ' + (official?.itsmStatus || 'Нет данных')));
+    toolbar.append(context);
+    toolbar.append(rcaButton('Печать отчёта', () => {
       if (busy || !state.canLeave()) {
         message.textContent = 'Завершите сохранение перед печатью отчёта.';
         return;
       }
-      try { printRcaReport(active, withOfficialSnapshot(active).officialSnapshot); }
-      catch (error) { message.textContent = error.message; }
+      const record = active;
+      const official = withOfficialSnapshot(record).officialSnapshot;
+      if (!record.attachments.some(item => item.kind === 'local_file')) {
+        try { printRcaReport(record, official); }
+        catch (error) { message.textContent = error.message; }
+        return;
+      }
+      const repository = state.getRepository();
+      rcaEditor('Печать отчёта', [['Фотографии', 'mode', 'list', {choices: {
+        list: 'Перечень с подписями', thumbnails: 'Перечень и до 12 миниатюр'
+      }}]], async ({mode}, form) => {
+        const dialog = form.closest('dialog');
+        dialog.addEventListener('close', () => {
+          void (async () => {
+            busy = true;
+            try {
+              message.textContent = '';
+              if (mode === 'thumbnails') await printRcaReportWithPhotos(record, official, repository.attachments);
+              else printRcaReport(record, official);
+            } catch (error) { message.textContent = error.message; }
+            finally { busy = false; }
+          })();
+        }, {once:true});
+      }, undefined, undefined, 'Печать');
     }));
-    content.append(rcaButton('Экспорт карточки в JSON', async () => {
+    toolbar.append(rcaButton('Экспорт JSON', async () => {
       try {
         const blob = await exportRcaArchive([problem], [], () => withOfficialSnapshot(active));
         downloadBlob(blob, problem.id + '.json');
@@ -258,11 +417,44 @@ function createRcaUi(state, downloadBlob, calculateItsmMetrics) {
     navigation.setAttribute('aria-label', 'Разделы карточки');
     tabs.forEach((label, index) => {
       const count = index === 2 ? active.evidence.length : index === 3 ? active.actions.length : 0;
-      const button = rcaButton(count ? label + ' (' + count + ')' : label, () => { tab = index; render(); });
+      const button = rcaButton(label, () => {
+        if ((!detail && tab === index) || !leaveDetail()) return;
+        tab = index;
+        render();
+        content.querySelector('.rca-tabs [aria-pressed=true]')?.focus();
+      });
+      if (count) button.append(rcaElement('span', String(count), 'rca-tab-count'));
       button.setAttribute('aria-pressed', String(index === tab));
       navigation.append(button);
     });
-    content.append(navigation);
+    content.append(toolbar, navigation);
+    if (planActionId) {
+      const action = active.actions.find(item => item.id === planActionId);
+      if (action) {
+        const panel = rcaElement('section', '', 'card rca-plan-screen');
+        const heading = rcaElement('h2', 'Типовой план');
+        heading.tabIndex = -1;
+        panel.append(rcaButton('← К мероприятию', () => {
+          if (busy) return;
+          if (!state.canLeave()) {
+            if (!window.confirm('Выйти без сохранения изменений плана?')) return;
+            state.discardDraft();
+          }
+          planActionId = null;
+          render();
+          detail.querySelector('.rca-open-plan')?.focus();
+        }), heading, rcaElement('p', action.text || 'Черновик мероприятия'),
+        rcaPlanControls(action, planLibrary, commit));
+        content.append(panel);
+        return;
+      }
+      planActionId = null;
+    }
+    if (detail) {
+      content.append(detail);
+      if (gallery) content.append(gallery.panel);
+      return;
+    }
     if (tab === 0) {
       if (official) content.append(renderOfficialPrb(official, officialRegistry));
       else if (problem.prbNumber) content.append(rcaElement('p', 'Официальная запись недоступна.'));
@@ -271,11 +463,12 @@ function createRcaUi(state, downloadBlob, calculateItsmMetrics) {
     }
     if (tab === 1) {
       if (!viewports.has(problem.id)) viewports.set(problem.id, {scale: 1, left: 0, top: 0});
-      content.append(renderRcaTree(active, commit, viewports.get(problem.id), targetNode, dictionaries));
+      content.append(renderRcaTree(active, commit, viewports.get(problem.id), targetNode, dictionaries,
+        detailEditor(2), openTreeLinks));
       targetNode = null;
     }
-    if (tab === 2) content.append(renderRcaEvidence(active, commit, navigateToNode, dictionaries));
-    if (tab === 3) content.append(renderRcaActions(active, commit, navigateToNode, planLibrary));
+    if (tab === 2) content.append(renderRcaEvidence(active, commit, navigateToNode, dictionaries, detailEditor(2)));
+    if (tab === 3) content.append(renderRcaActions(active, commit, navigateToNode, detailEditor(3)));
   }
 
   function withOfficialSnapshot(record) {
@@ -306,7 +499,9 @@ function createRcaUi(state, downloadBlob, calculateItsmMetrics) {
   }
 
   async function select(id) {
-    if (busy || !state.canLeave()) return;
+    const hadDetail = Boolean(detail);
+    if (busy || !leaveDetail() || !state.canLeave()) return;
+    if (hadDetail) render();
     const sequence = ++request;
     try {
       const result = local.has(id) ? {record: local.get(id), issues: []}
@@ -356,17 +551,20 @@ function createRcaUi(state, downloadBlob, calculateItsmMetrics) {
   }
 
   add.disabled = search.disabled = false;
-  add.addEventListener('click', () => rcaEditor('Добавить проблему', [
-    ['Номер PRB (необязательно)', 'prbNumber'],
-    ['Краткое название проблемы', 'title', '', {required: true}],
-    ['Оборудование / система', 'equipment']
-  ], async (values, form) => {
-    form.problem ??= createRcaProblem({...values, title: values.title.trim(), prbNumber: normalizeRcaPrb(values.prbNumber)});
-    tab = 0;
-    await commit(next => Object.assign(next.problem, values, {
-      title: values.title.trim(), prbNumber: normalizeRcaPrb(values.prbNumber)
-    }), form.problem);
-  }, state.discardDraft));
+  add.addEventListener('click', () => {
+    if (detail) return;
+    rcaEditor('Добавить проблему', [
+      ['Номер PRB (необязательно)', 'prbNumber'],
+      ['Краткое название проблемы', 'title', '', {required: true}],
+      ['Оборудование / система', 'equipment']
+    ], async (values, form) => {
+      form.problem ??= createRcaProblem({...values, title: values.title.trim(), prbNumber: normalizeRcaPrb(values.prbNumber)});
+      tab = 0;
+      await commit(next => Object.assign(next.problem, values, {
+        title: values.title.trim(), prbNumber: normalizeRcaPrb(values.prbNumber)
+      }), form.problem);
+    }, state.discardDraft);
+  });
   search.addEventListener('input', renderRegister);
   statusFilter.addEventListener('change', renderRegister);
 
@@ -442,11 +640,14 @@ function createRcaUi(state, downloadBlob, calculateItsmMetrics) {
         unexported.clear();
         unexportedDictionaries = false;
       },
-      async apply(repository, changes, dictionary) {
+      async apply(repository, changes, dictionary, photoFiles) {
         if (repository !== state.getRepository()) throw new Error('Рабочая папка изменилась.');
         const capability = await repository.getWriteCapability();
+        if (photoFiles && (!capability.writable || local.size || temporaryDictionaries)) {
+          throw new Error('Для импорта ZIP подключите папку с разрешением на запись и завершите работу с временными данными.');
+        }
         if (capability.mode === 'write') {
-          const saved = await repository.saveBatch(changes, dictionary);
+          const saved = await repository.saveBatch(changes, dictionary, photoFiles);
           await refresh();
           active = saved.find(record => record.problem.id === active?.problem.id) ?? active;
         } else {
@@ -476,6 +677,11 @@ function createRcaUi(state, downloadBlob, calculateItsmMetrics) {
     const sequence = ++request;
     rows = [];
     active = null;
+    detail = null;
+    gallery?.dispose();
+    gallery = null;
+    detailDirty = false;
+    planActionId = null;
     selectedOfficial = null;
     pendingOfficial = null;
     references = null;
@@ -500,13 +706,19 @@ function createRcaUi(state, downloadBlob, calculateItsmMetrics) {
     }
   });
   window.addEventListener('beforeunload', event => {
-    if (!state.canLeave() || unexported.size || unexportedDictionaries) {
+    if (detailDirty || !state.canLeave() || unexported.size || unexportedDictionaries) {
       event.preventDefault();
       event.returnValue = true;
     }
   });
   return {
-    hasTemporaryChanges: () => busy || analytics.busy || Boolean(officialWrite) || unexported.size > 0 || unexportedDictionaries,
+    closeDetail() {
+      if (!detail) return true;
+      if (!leaveDetail()) return false;
+      render();
+      return true;
+    },
+    hasTemporaryChanges: () => detailDirty || busy || analytics.busy || Boolean(officialWrite) || unexported.size > 0 || unexportedDictionaries,
     showSaved, updateOfficialRegistry, updatePlanLibrary, setReferences(value) { references = value; render(); },
     markAnalyticsStale() {
       if (!analytics.index) return;

@@ -7,7 +7,7 @@ async function openRcaDictionaries({button, repository, getRows, load, read, app
   const preview = rcaElement('div');
   const file = rcaElement('input');
   file.type = 'file';
-  file.accept = '.json,application/json';
+  file.accept = '.json,.zip,application/json,application/zip';
   file.hidden = true;
   const search = rcaElement('input');
   search.type = 'search';
@@ -88,22 +88,42 @@ async function openRcaDictionaries({button, repository, getRows, load, read, app
     download(blob, 'RCA-archive.json');
     notice.textContent = 'Расследований: ' + rows.length + '. ' + RCA_ATTACHMENT_WARNING;
   }));
-  const importButton = rcaButton('Импорт из JSON', () => { if (!busy) file.click(); });
+  const exportZip = rcaButton('Экспорт ZIP с фото', () => void run(async () => {
+    const rows = await getRows(repository);
+    const blob = await exportRcaZip(rows, await read(repository), id => load(repository, id), repository.attachments);
+    download(blob, 'RCA-archive.zip');
+    notice.textContent = 'Расследований в ZIP: ' + rows.length + '.';
+  }));
+  const importButton = rcaButton('Импорт JSON или ZIP', () => { if (!busy) file.click(); });
   file.addEventListener('change', () => void run(async () => {
     const source = file.files[0];
     file.value = '';
     preview.replaceChildren();
     if (!source) return;
-    if (!/\.json$/i.test(source.name) || !['', 'application/json', 'text/plain', 'application/octet-stream'].includes(source.type) ||
-        source.size > RCA_ARCHIVE_LIMIT) throw new Error('Выберите JSON-архив размером до 16 МБ.');
-    const archive = readRcaArchive(await source.text());
+    const zip = /\.zip$/i.test(source.name) ? await readRcaZip(source) : null;
+    if (!zip && (!/\.json$/i.test(source.name) || !['', 'application/json', 'text/plain', 'application/octet-stream'].includes(source.type) ||
+        source.size > RCA_ARCHIVE_LIMIT)) throw new Error('Выберите JSON-архив размером до 16 МБ или ZIP RCA.');
+    const archive = zip?.archive ?? readRcaArchive(await source.text());
     const expected = await read(repository);
     const plan = await planRcaArchive(archive, await getRows(repository), expected, id => load(repository, id));
     const labels = {new: 'Новая', same: 'Совпадает', conflict: 'Конфликт UUID', blocked: 'Отклонена: конфликт PRB или повреждение'};
     const list = rcaElement('ul', '', 'rca-archive-preview');
     const selected = new Map();
     for (const change of plan.problems) {
-      const row = rcaElement('li', labels[change.kind] + ' · ' + rcaDisplayId(change.record.problem) + ' · ' + change.record.problem.title);
+      const photos = change.record.attachments.filter(item => item.kind === 'local_file');
+      if (zip && change.kind === 'same') {
+        for (const item of photos) {
+          try { await repository.attachments.loadBinary(change.record, item.id); }
+          catch (error) {
+            change.kind = error.name === 'NotFoundError' ? 'restore' : 'blocked';
+            if (change.kind === 'blocked') break;
+          }
+        }
+      }
+      const row = rcaElement('li', (change.kind === 'restore' ? 'Восстановление фото' : labels[change.kind]) +
+        ' · ' + rcaDisplayId(change.record.problem) + ' · ' + change.record.problem.title +
+        (zip ? ' · фото: ' + photos.length + ' · ' +
+          (photos.reduce((sum, item) => sum + item.size, 0) / 1048576).toFixed(2) + ' МиБ' : ''));
       if (change.kind === 'conflict') {
         const label = rcaElement('label', ' Заменить эту карточку');
         const checkbox = rcaElement('input');
@@ -117,17 +137,18 @@ async function openRcaDictionaries({button, repository, getRows, load, read, app
     preview.append(rcaElement('h2', 'Предпросмотр импорта'), list,
       rcaElement('p', 'Значения справочников — новых: ' + plan.added + ', совпадений или конфликтов: ' + plan.skipped + '.'),
       rcaButton('Применить импорт', () => void run(async () => {
-        const changes = plan.problems.filter(change => change.kind === 'new' || selected.get(change)?.checked);
+        const changes = plan.problems.filter(change => ['new', 'restore'].includes(change.kind) || selected.get(change)?.checked);
         if (changes.some(change => change.kind === 'conflict') && !window.confirm('Заменить выбранные карточки?')) return;
         if (changes.length || plan.added) {
-          await apply(repository, changes, plan.added ? {expected, items: plan.items} : undefined);
+          await apply(repository, changes, plan.added ? {expected, items: plan.items} : undefined, zip?.files);
           items = await read(repository);
           render();
         }
         preview.replaceChildren();
         const rejected = plan.problems.filter(change => change.kind === 'blocked').length;
         notice.textContent = 'Импортировано карточек: ' + changes.length + ', пропущено: ' +
-          (plan.problems.length - changes.length - rejected) + ', отклонено: ' + rejected + '. ' + RCA_ATTACHMENT_WARNING;
+          (plan.problems.length - changes.length - rejected) + ', отклонено: ' + rejected + '.' +
+          (zip ? '' : ' ' + RCA_ATTACHMENT_WARNING);
       })), rcaButton('Отмена импорта', () => preview.replaceChildren()));
   }));
   const plans = rcaElement('details');
@@ -140,7 +161,7 @@ async function openRcaDictionaries({button, repository, getRows, load, read, app
     plans.append(rcaElement('p',planLibrary.fileName),list);
   }
   dialog.append(rcaElement('h2', 'Справочники RCA Master'), categories, search, body, plans,
-    exportButton, importButton, file, notice, preview,
+    exportButton, exportZip, importButton, file, notice, preview,
     rcaButton('Закрыть', () => { if (!busy) dialog.close(); }));
   dialog.addEventListener('cancel', event => { if (busy) event.preventDefault(); });
   dialog.addEventListener('close', () => {

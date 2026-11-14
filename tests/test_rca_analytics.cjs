@@ -42,6 +42,34 @@ test('Worker recognizes nine templates and 74 steps; editable copies preserve ze
   record.actions.push({id:'action',nodeIds:[],plan:updated});
   app.validateRcaProblem(JSON.parse(JSON.stringify(record)));
   assert.ok(app.buildRcaReport(record).sections.some(section=>section.title.startsWith('План · ')));
+
+  const grouped = xlsx.utils.book_new();
+  xlsx.utils.book_append_sheet(grouped,xlsx.utils.aoa_to_sheet([
+    [' Код ', 'Сценарий'], ['ТП №1', 'Диагностика'], ['ТП №2', 'Восстановление']
+  ]),'Реестр');
+  const sheet = xlsx.utils.aoa_to_sheet([
+    ['Код', 'Шаг', 'Ориент. дней', 'Контрольный\nрезультат', 'Ответственный'],
+    ['ТП №1', 1, 0, 'Зафиксировать состояние'],
+    [null, '2', 3, 'Проверить резерв', 'Инженер'],
+    ['ТП №2', 1, 1, 'Восстановить работу']
+  ]);
+  xlsx.utils.book_append_sheet(grouped,sheet,'Типовые планы');
+  const reread = xlsx.read(xlsx.write(grouped,{type:'array',bookType:'xlsx'}),{type:'array'});
+  assert.equal(engine.ReclassifierDatasetClassifier.classifyWorkbook(reread).id,'rca_plan_templates');
+  const groupedTemplates = engine.readRcaPlanTemplates(reread);
+  app.validateRcaPlanLibrary({...library,templates:groupedTemplates});
+  assert.equal(groupedTemplates.length,2);
+  assert.equal(groupedTemplates[0].steps[0].durationDays,0);
+  assert.equal(groupedTemplates[0].steps[1].title,'Проверить резерв');
+  assert.equal(groupedTemplates[0].steps[1].participant,'Инженер');
+  assert.equal(groupedTemplates[1].steps[0].number,1);
+  sheet.B3.v = '1';
+  assert.throws(()=>engine.readRcaPlanTemplates(grouped),/строка 3.*номер шага 2/);
+  sheet.B3.v = '3';
+  assert.throws(()=>engine.readRcaPlanTemplates(grouped),/строка 3.*номер шага 2/);
+  sheet.B3.v = '2';
+  sheet.C3.v = -1;
+  assert.throws(()=>engine.readRcaPlanTemplates(grouped),/строка 3.*длительность/);
 });
 
 test('analytics Worker reads a synthetic XLSX and skips identical source versions', async t => {

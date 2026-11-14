@@ -40,7 +40,7 @@ function openPage(session, {discarded = false, denyStorage = false, navigation =
     return button;
   }) : [];
   vm.runInNewContext(source,{
-    location:{protocol:'file:',pathname:'/Reclassifier_Folders.html',hash:''},
+    location:{protocol:'file:',pathname:'/ReclassifierEXCEL.html',hash:''},
     window:{
       isSecureContext:true,
       get sessionStorage(){

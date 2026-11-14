@@ -24,7 +24,7 @@ src/folders/index.html + folders.js (оболочка)
 ITSM/export_ITSM.xlsx и MB/export_MB.xlsx
 ```
 
-Сборка выполняется `build/build_folders.py`, создаёт `dist/Reclassifier_Folders.html` и копию `dist/ReclassifierEXCEL.html`. Технически это **локальная HTML/JavaScript/Worker/Excel-система**. Рабочие корпоративные данные не включаются в сборку.
+Сборка выполняется `build/build_folders.py` и создаёт `dist/ReclassifierEXCEL.html`. Технически это **локальная HTML/JavaScript/Worker/Excel-система**. Рабочие корпоративные данные не включаются в сборку.
 
 ## 2. Граница модулей
 

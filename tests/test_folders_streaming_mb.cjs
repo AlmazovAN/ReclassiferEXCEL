@@ -5,7 +5,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 test('streaming MB preserves all fields, ordering and provenance without staging the history', async () => {
-  const release = fs.readFileSync(path.join(__dirname,'../dist/Reclassifier_Folders.html'),'utf8');
+  const release = fs.readFileSync(path.join(__dirname,'../dist/ReclassifierEXCEL.html'),'utf8');
   const source = JSON.parse(release.match(/id="folders-worker">([\s\S]*?)<\/script>/)[1]);
   const app = vm.createContext({
     Blob, ArrayBuffer, Uint8Array, Date, Map, Set, TextEncoder, TextDecoder, TextDecoderStream,

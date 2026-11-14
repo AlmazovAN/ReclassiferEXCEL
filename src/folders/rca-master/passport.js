@@ -88,6 +88,7 @@ function renderRcaPassport(record, commit, references) {
       section.append(list, rcaElement('h3', 'Ручные цепочки'));
     }
     for (const item of record[key]) {
+      if (key === 'attachments' && item.kind === 'local_file') continue;
       const row = rcaElement('div', '', 'rca-passport-row');
       row.append(rcaElement('span', fields.map(([, name]) => item[name]).filter(Boolean).join(' · ')),
         rcaButton('Редактировать', () => editRcaCollection(record, key, label, fields, commit, item)),

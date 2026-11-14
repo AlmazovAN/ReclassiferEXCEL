@@ -70,7 +70,7 @@ test('ITSM index survives interrupted publication and skips unchanged generation
 
 const html = fs.readFileSync(path.join(__dirname, '../dist/ReclassifierEXCEL.html'), 'utf8');
 const script = html.match(/<script>([\s\S]*?)<\/script>/)[1];
-const context = vm.createContext({crypto, TextEncoder, structuredClone, DOMException, Blob, navigator: {}});
+const context = vm.createContext({crypto, TextEncoder, TextDecoder, structuredClone, DOMException, Blob, navigator: {}});
 vm.runInContext(script.slice(0, script.lastIndexOf("\n(() => {")), context);
 const {createRcaRepository, createRcaProblem, createRcaState, normalizeRcaPrb,
   filterRcaRegistry, addRcaWhy, removeRcaTreeItem, rcaTreeColumns, validateRcaProblem} = context;
@@ -124,6 +124,65 @@ function workspace() {
   }
   return {handle: directory(''), files, options};
 }
+
+test('RCA photo originals are verified before publication and retained after unlinking', async () => {
+  const {handle, files, options} = workspace();
+  const repo = createRcaRepository({handle, mode: 'write'});
+  const record = createRcaProblem({title: 'Фото'});
+  record.actions.push({id: 'action', nodeIds: []});
+  record.attachments.push({id: 'legacy', reference: 'old.jpg'});
+  let saved = await repo.saveRevision(record, 0);
+  const photo = (name, type, bytes) => ({
+    ownerType: 'action', ownerId: 'action', file: Object.assign(new Blob([Buffer.from(bytes)], {type}), {name})
+  });
+  const jpeg = photo('a.jpeg', 'image/jpeg', [255,216,255,0,0,0,0,0,0,0,0,0]);
+  const png = photo('b.png', 'image/png', [137,80,78,71,13,10,26,10,0,0,0,0]);
+  const webp = photo('c.webp', 'image/webp', Buffer.from('RIFF0000WEBP'));
+  await assert.rejects(repo.attachments.add(saved, saved.problem.revision, {...jpeg, ownerId: 'other'}), /метаданные/);
+  await assert.rejects(repo.attachments.add(saved, saved.problem.revision,
+    photo('wrong.png', 'image/png', Buffer.from('not an image'))), /сигнатура/);
+  options.permission = 'denied';
+  await assert.rejects(repo.attachments.add(saved, saved.problem.revision, jpeg), /разрешение/);
+  options.permission = 'granted';
+  options.fail = '/attachments/';
+  await assert.rejects(repo.attachments.add(saved, saved.problem.revision, jpeg), /Interrupted write/);
+  assert.equal((await repo.loadProblem(record.problem.id)).record.attachments.length, 1);
+  options.fail = '';
+  for (const input of [jpeg, png, webp]) saved = await repo.attachments.add(saved, saved.problem.revision, input);
+  await assert.rejects(repo.attachments.add(saved, 1, jpeg), /Конфликт ревизий/);
+  const reader = createRcaRepository({handle, mode: 'read'});
+  const {record: reopened} = await reader.loadProblem(record.problem.id);
+  const items = reader.attachments.listAttachments(reopened, 'action', 'action');
+  assert.equal(items.length, 3);
+  for (const item of items) assert.equal((await reader.attachments.loadBinary(reopened, item.id)).type, item.mime);
+  const zip = await context.exportRcaZip([reopened.problem], [], () => reopened, reader.attachments);
+  const {archive, files: photoFiles} = await context.readRcaZip(zip);
+  assert.equal(photoFiles.size, 3);
+  const target = workspace();
+  const destination = createRcaRepository({handle: target.handle, mode: 'write'});
+  const changes = [{record: archive.problems[0], expectedRevision: 0}];
+  target.options.fail = '/attachments/';
+  await assert.rejects(destination.saveBatch(changes, undefined, photoFiles), /Interrupted write/);
+  assert.equal((await destination.listIndex()).records.length, 0);
+  const clean = createRcaRepository({handle: workspace().handle, mode: 'write'});
+  const [copied] = await clean.saveBatch(changes, undefined, photoFiles);
+  for (const item of items) assert.equal((await clean.attachments.loadBinary(copied, item.id)).size, item.size);
+  const plan = await planRcaArchive(archive, [copied.problem], [], () => copied);
+  assert.equal(plan.problems[0].kind, 'same');
+  const damaged = new Uint8Array(await zip.arrayBuffer());
+  damaged[43] ^= 1;
+  await assert.rejects(context.readRcaZip(new Blob([damaged])), /Контрольная сумма/);
+  const [first, second] = items;
+  const changed = structuredClone(reopened);
+  changed.attachments[1].path = '../' + first.path;
+  assert.throws(() => validateRcaProblem(changed), /метаданные/);
+  files.set(second.path, Buffer.alloc(second.size));
+  await assert.rejects(reader.attachments.loadBinary(reopened, second.id), /повреждена/);
+  const unlinked = await repo.attachments.unlinkAttachment(reopened, reopened.problem.revision, first.id);
+  assert.equal(unlinked.attachments[0].reference, 'old.jpg');
+  assert.equal(unlinked.attachments.length, 3);
+  assert.ok(files.has(first.path));
+});
 
 test('RCA publishes individual versions and rejects a stale revision', async () => {
   const {handle, files} = workspace();

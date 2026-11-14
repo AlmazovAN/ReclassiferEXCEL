@@ -9,7 +9,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-ARTIFACT = HERE / "Reclassifier_Folders.html"
+ARTIFACT = HERE / "ReclassifierEXCEL.html"
 if not ARTIFACT.is_file():
     ARTIFACT = HERE.parent / "dist" / ARTIFACT.name
 HOST = "127.0.0.1"
@@ -28,7 +28,7 @@ class FoldersServer(ThreadingHTTPServer):
 
 class FoldersHandler(BaseHTTPRequestHandler):
     def do_GET(self):
-        if self.path not in ("/", "/Reclassifier_Folders.html"):
+        if self.path not in ("/", f"/{ARTIFACT.name}"):
             self.send_error(404)
             return
         body = ARTIFACT.read_bytes()
@@ -64,7 +64,7 @@ def main():
     parser.add_argument("--open", action="store_true", help="Открыть приложение в браузере.")
     args = parser.parse_args()
     if not ARTIFACT.is_file():
-        raise SystemExit("Файл Reclassifier_Folders.html отсутствует. Пересоберите приложение.")
+        raise SystemExit(f"Файл {ARTIFACT.name} отсутствует. Пересоберите приложение.")
 
     try:
         server = FoldersServer((HOST, PORT), FoldersHandler)

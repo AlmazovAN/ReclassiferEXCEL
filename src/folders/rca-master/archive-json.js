@@ -59,7 +59,7 @@ async function planRcaArchive(archive, rows, dictionaries, load) {
   return {problems, items, added, skipped};
 }
 
-async function exportRcaArchive(rows, dictionaries, load) {
+async function exportRcaArchive(rows, dictionaries, load, binaryIncluded = false) {
   const chunks = [];
   const encoder = new TextEncoder();
   let size = 0;
@@ -71,7 +71,7 @@ async function exportRcaArchive(rows, dictionaries, load) {
   const header = {
     format: 'reclassifier-rca-archive', schemaVersion: RCA_SCHEMA_VERSION, exportedAt: new Date().toISOString(),
     dictionaries, counts: {problems: rows.length, dictionaries: dictionaries.length},
-    warnings: [RCA_ATTACHMENT_WARNING], attachments: {binaryIncluded: false}
+    warnings: binaryIncluded ? [] : [RCA_ATTACHMENT_WARNING], attachments: {binaryIncluded}
   };
   append(JSON.stringify(header).slice(0, -1) + ',"problems":[');
   for (const [index, row] of rows.entries()) {
